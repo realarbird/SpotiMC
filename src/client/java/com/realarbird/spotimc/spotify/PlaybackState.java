@@ -59,20 +59,48 @@ public record PlaybackState(
                 }
                 
                 if (album.has("images") && album.get("images").isJsonArray()) {
-                    JsonArray images = album.getAsJsonArray("images");
-                    if (!images.isEmpty()) {
-                        // Pick primary album cover image
-                        JsonObject mainImage = images.get(0).getAsJsonObject();
-                        if (mainImage.has("url") && !mainImage.get("url").isJsonNull()) {
-                            albumArtUrl = mainImage.get("url").getAsString();
-                        }
-                    }
+                    albumArtUrl = extractBestImageUrl(album.getAsJsonArray("images"));
                 }
+            }
+
+            if (albumArtUrl.isEmpty() && item.has("show") && item.get("show").isJsonObject()) {
+                JsonObject show = item.getAsJsonObject("show");
+                if (albumName.isEmpty() && show.has("name") && !show.get("name").isJsonNull()) {
+                    albumName = show.get("name").getAsString();
+                }
+                if (show.has("images") && show.get("images").isJsonArray()) {
+                    albumArtUrl = extractBestImageUrl(show.getAsJsonArray("images"));
+                }
+            }
+
+            if (albumArtUrl.isEmpty() && item.has("images") && item.get("images").isJsonArray()) {
+                albumArtUrl = extractBestImageUrl(item.getAsJsonArray("images"));
             }
 
             return new PlaybackState(trackName, artistName, albumName, albumArtUrl, isPlaying, progressMs, durationMs, shuffleState, repeatState);
         } catch (Exception e) {
             return EMPTY;
         }
+    }
+
+    private static String extractBestImageUrl(JsonArray images) {
+        if (images == null || images.isEmpty()) return "";
+        String fallback = "";
+        for (JsonElement elem : images) {
+            if (elem == null || !elem.isJsonObject()) continue;
+            JsonObject imgObj = elem.getAsJsonObject();
+            if (!imgObj.has("url") || imgObj.get("url").isJsonNull()) continue;
+            String url = imgObj.get("url").getAsString();
+            if (url == null || url.isBlank()) continue;
+
+            int width = imgObj.has("width") && !imgObj.get("width").isJsonNull() ? imgObj.get("width").getAsInt() : 0;
+            if (width == 300 || width == 64) {
+                return url;
+            }
+            if (fallback.isEmpty()) {
+                fallback = url;
+            }
+        }
+        return fallback;
     }
 }

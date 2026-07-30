@@ -7,6 +7,7 @@ import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -29,6 +30,7 @@ public class AlbumArtTexture {
 
     private final ConcurrentHashMap<String, Identifier> textureCache = new ConcurrentHashMap<>();
     private final Set<String> downloading = ConcurrentHashMap.newKeySet();
+    private final Set<String> failedUrls = ConcurrentHashMap.newKeySet();
     private final List<DynamicTexture> registeredTextures = new ArrayList<>();
     private final HttpClient httpClient;
 
@@ -44,10 +46,10 @@ public class AlbumArtTexture {
      * If the texture is not yet cached, starts an async download and returns null.
      *
      * @param url the album art image URL
-     * @return the texture Identifier if cached, or null if still loading
+     * @return the texture Identifier if cached, or null if still loading or failed
      */
     public Identifier getTexture(String url) {
-        if (url == null || url.isEmpty()) {
+        if (url == null || url.isBlank()) {
             return null;
         }
 
@@ -56,42 +58,41 @@ public class AlbumArtTexture {
             return cached;
         }
 
+        if (failedUrls.contains(url)) {
+            return null;
+        }
+
         // Start async download if not already in progress
         if (downloading.add(url)) {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(Duration.ofSeconds(5))
-                    .header("User-Agent", "SpotiMC/1.0 (Minecraft Fabric Mod)")
-                    .GET()
-                    .build();
+            HttpRequest request;
+            try {
+                request = HttpRequest.newBuilder(URI.create(url))
+                        .timeout(Duration.ofSeconds(5))
+                        .header("User-Agent", "SpotiMC/1.0 (Minecraft Fabric Mod)")
+                        .GET()
+                        .build();
+            } catch (Exception e) {
+                LOGGER.error("Invalid album art URL: {}", url, e);
+                failedUrls.add(url);
+                downloading.remove(url);
+                return null;
+            }
 
             httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
                     .thenAccept(response -> {
                         if (response.statusCode() == 200 && response.body() != null && response.body().length > 0) {
-                            try {
-                                byte[] bytes = response.body();
-                                NativeImage loaded = NativeImage.read(bytes);
+                            try (ByteArrayInputStream bais = new ByteArrayInputStream(response.body())) {
+                                NativeImage loaded = NativeImage.read(bais);
                                 int srcW = loaded.getWidth();
                                 int srcH = loaded.getHeight();
 
                                 NativeImage image = new NativeImage(NativeImage.Format.RGBA, 64, 64, false);
-                                for (int x = 0; x < 64; x++) {
-                                    for (int y = 0; y < 64; y++) {
-                                        int srcX = Math.min(srcW - 1, x * srcW / 64);
-                                        int srcY = Math.min(srcH - 1, y * srcH / 64);
-                                        int color = loaded.getPixel(srcX, srcY);
-                                        int alpha = (color >> 24) & 0xFF;
-                                        if (alpha == 0) {
-                                            color |= 0xFF000000;
-                                        }
-                                        image.setPixel(x, y, color);
-                                    }
-                                }
+                                loaded.resizeSubRectTo(0, 0, srcW, srcH, image);
                                 loaded.close();
 
                                 String hash = md5Hash(url);
                                 Identifier id = Identifier.fromNamespaceAndPath("spotimc", "albumart/" + hash);
 
-                                // Register on the main thread and upload pixels to GPU
                                 Minecraft client = Minecraft.getInstance();
                                 if (client != null) {
                                     client.execute(() -> {
@@ -103,19 +104,32 @@ public class AlbumArtTexture {
                                             textureCache.put(url, id);
                                         } catch (Exception ex) {
                                             LOGGER.error("Failed to register dynamic texture for {}", url, ex);
+                                            failedUrls.add(url);
+                                            image.close();
+                                        } finally {
+                                            downloading.remove(url);
                                         }
                                     });
+                                } else {
+                                    image.close();
+                                    downloading.remove(url);
                                 }
                             } catch (Exception e) {
-                                LOGGER.error("Failed to read downloaded album art from {}", url, e);
+                                LOGGER.error("Failed to decode downloaded album art from {}", url, e);
+                                failedUrls.add(url);
+                                downloading.remove(url);
                             }
                         } else {
                             LOGGER.error("Failed to download album art from {} - HTTP {}", url, response.statusCode());
+                            failedUrls.add(url);
+                            downloading.remove(url);
                         }
                     }).exceptionally(ex -> {
                         LOGGER.error("Error downloading album art from {}", url, ex);
+                        failedUrls.add(url);
+                        downloading.remove(url);
                         return null;
-                    }).whenComplete((res, ex) -> downloading.remove(url));
+                    });
         }
 
         return null;
@@ -150,6 +164,8 @@ public class AlbumArtTexture {
             }
             registeredTextures.clear();
             textureCache.clear();
+            failedUrls.clear();
+            downloading.clear();
         });
     }
 }

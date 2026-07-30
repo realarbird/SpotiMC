@@ -46,6 +46,13 @@
 
 ## Chronological Session Logs
 
+### Session 9 — 2026-07-30 (Advanced Mode Album Art & Texture Decoding Fix)
+- **Advanced Mode Album Art & Podcast Cover Resolution**:
+  - *Root Cause 1*: In `PlaybackState.fromJson`, Spotify item JSON was only checked for `item.album.images`. Podcasts, shows, and non-standard tracks return image arrays under `item.show.images` or `item.images`, causing `albumArtUrl` to remain empty.
+  - *Root Cause 2*: `AlbumArtTexture.java` manually resampled native image pixels using a Java `getPixel`/`setPixel` loop. `NativeImage.getPixel()` returns ARGB format, but `setPixel()` required ABGR/RGBA conversion, corrupting image colors and alpha channels. Furthermore, failed downloads or decoding errors continuously re-triggered HTTP requests on every render frame without recording failed URLs.
+  - *Fix*: `PlaybackState.java` now parses image arrays from `item.album`, `item.show`, and direct `item` fields, preferring 300px/64px URLs for faster network transfers. `AlbumArtTexture.java` now decodes images via `ByteArrayInputStream` and resizes natively via LWJGL C code (`resizeSubRectTo`), safely closing decoded native images, preventing memory leaks, and tracking failed URLs (`failedUrls`) to prevent frame-by-frame network spam.
+  - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
+
 ### Session 8 — 2026-07-30 (Basic Mode Actual Album Art Lookup)
 - **Actual Album Cover Fix**:
   - *Root Cause*: Last.fm’s `user.getrecenttracks` response frequently omits album image URLs. `PlaybackState` therefore had an empty artwork URL and the HUD correctly—but unhelpfully—displayed `default_cover.png` for every song.
