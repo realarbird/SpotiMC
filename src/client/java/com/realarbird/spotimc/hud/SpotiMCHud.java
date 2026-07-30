@@ -12,10 +12,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 /**
- * Renders the Spotify playback HUD overlay as a Fabric HudElement.
- *
- * <p>Displays a semi-transparent panel with album art, track name,
- * artist name, and a progress bar in Spotify green.</p>
+ * Renders the SpotiMC playback HUD overlay as a Fabric HudElement.
+ * Supports both Basic Mode (Last.fm) and Advanced Mode (Spotify).
  */
 public class SpotiMCHud implements HudElement {
 
@@ -51,11 +49,7 @@ public class SpotiMCHud implements HudElement {
             return;
         }
 
-        if (SpotiMCClient.SPOTIFY_API == null) {
-            return;
-        }
-
-        PlaybackState playback = SpotiMCClient.SPOTIFY_API.getCurrentPlayback();
+        PlaybackState playback = SpotiMCClient.getActivePlayback();
         if (playback == null || playback.equals(PlaybackState.EMPTY)) {
             return;
         }
@@ -90,8 +84,8 @@ public class SpotiMCHud implements HudElement {
 
         // Track name and artist — truncated with ... if longer than 120px
         Font font = Minecraft.getInstance().font;
-        String rawTrack = playback.trackName() != null ? playback.trackName() : "Unknown Track";
-        String rawArtist = playback.artistName() != null ? playback.artistName() : "Unknown Artist";
+        String rawTrack = playback.trackName() != null && !playback.trackName().isEmpty() ? playback.trackName() : "Unknown Track";
+        String rawArtist = playback.artistName() != null && !playback.artistName().isEmpty() ? playback.artistName() : "Unknown Artist";
 
         String trackName = trimToWidth(font, rawTrack, 120);
         String artistName = trimToWidth(font, rawArtist, 120);
@@ -99,7 +93,7 @@ public class SpotiMCHud implements HudElement {
         gfx.textRenderer().accept(50, 12, Component.literal(trackName));
         gfx.textRenderer().accept(50, 24, Component.literal(artistName));
 
-        // Progress Bar
+        // Progress Bar / Mode Bar
         int progressWidth = 120;
         int progressHeight = 4;
         int progressX = 50;
@@ -114,6 +108,9 @@ public class SpotiMCHud implements HudElement {
             ratio = Math.min(1.0f, Math.max(0.0f, ratio));
             int filledWidth = (int) (progressWidth * ratio);
             gfx.fill(progressX, progressY, progressX + filledWidth, progressY + progressHeight, 0xFF1DB954);
+        } else if (playback.isPlaying()) {
+            // Basic Mode active song indicator
+            gfx.fill(progressX, progressY, progressX + progressWidth, progressY + progressHeight, 0xFF1DB954);
         }
 
         gfx.pose().popMatrix();

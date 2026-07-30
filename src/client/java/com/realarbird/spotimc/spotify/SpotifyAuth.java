@@ -26,15 +26,12 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Handles Spotify OAuth2 Authentication using PKCE (Authorization Code Flow with Proof Key for Code Exchange).
- *
- * <p>PKCE allows secure authentication without exposing client secrets in source code or client apps.</p>
+ * Requires the user to enter their own Spotify Client ID and Client Secret from developer.spotify.com/dashboard.
  */
 public class SpotifyAuth {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("SpotiMC");
 
-    // Default Client ID for SpotiMC (can be overridden via spotimc.json)
-    private static final String DEFAULT_CLIENT_ID = "93b30bcdb38748d8892107bd8a124aee";
     private static final String REDIRECT_URI = "http://127.0.0.1:4381/callback";
     private static final String SCOPES = "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative";
 
@@ -81,10 +78,7 @@ public class SpotifyAuth {
 
     public String getClientId() {
         SpotiMCConfig config = SpotiMCConfig.getInstance();
-        if (config.clientId != null && !config.clientId.trim().isEmpty()) {
-            return config.clientId.trim();
-        }
-        return DEFAULT_CLIENT_ID;
+        return config.clientId != null ? config.clientId.trim() : "";
     }
 
     public String getClientSecret() {
@@ -121,12 +115,16 @@ public class SpotifyAuth {
      * Starts the Spotify PKCE OAuth2 browser authorization flow.
      */
     public void startAuth() {
+        String clientId = getClientId();
+        if (clientId.isEmpty()) {
+            LOGGER.warn("Cannot start Spotify authentication: Client ID is not configured!");
+            return;
+        }
+
         try {
             expectedState = UUID.randomUUID().toString();
             codeVerifier = generateCodeVerifier();
             String codeChallenge = generateCodeChallenge(codeVerifier);
-
-            String clientId = getClientId();
 
             String url = "https://accounts.spotify.com/authorize" +
                     "?response_type=code" +

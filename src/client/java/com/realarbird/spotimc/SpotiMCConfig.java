@@ -11,10 +11,16 @@ import java.nio.file.Path;
 
 /**
  * Configuration manager for SpotiMC.
- * Stores HUD position/scale/visibility and Spotify OAuth tokens & credentials.
+ * Stores HUD position/scale/visibility, operational mode (Basic vs Advanced),
+ * Spotify OAuth credentials & tokens, and Last.fm API settings.
  * Persisted as JSON to .minecraft/config/spotimc.json.
  */
 public class SpotiMCConfig {
+
+    public enum Mode {
+        BASIC,
+        ADVANCED
+    }
 
     private static final Logger LOGGER = LoggerFactory.getLogger("SpotiMC");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -22,18 +28,25 @@ public class SpotiMCConfig {
     private static SpotiMCConfig instance;
     private static Path configPath;
 
+    // --- Operational Mode ---
+    public Mode mode = Mode.ADVANCED;
+
     // --- HUD Settings ---
     public int hudX = 10;
     public int hudY = 10;
     public float hudScale = 1.0f;
     public boolean hudVisible = true;
 
-    // --- Spotify Credentials & Tokens (persisted in spotimc.json) ---
+    // --- Spotify Credentials & Tokens (Advanced Mode) ---
     public String clientId = "";
     public String clientSecret = "";
     public String accessToken = "";
     public String refreshToken = "";
     public long tokenExpiresAt = 0;
+
+    // --- Last.fm Settings (Basic Mode) ---
+    public String lastFmApiKey = "";
+    public String lastFmUsername = "";
 
     private SpotiMCConfig() {
     }
@@ -74,6 +87,9 @@ public class SpotiMCConfig {
                 if (instance == null) {
                     instance = new SpotiMCConfig();
                 }
+                if (instance.mode == null) {
+                    instance.mode = Mode.ADVANCED;
+                }
                 LOGGER.info("Loaded SpotiMC config from {}", configPath);
             } catch (IOException | com.google.gson.JsonSyntaxException e) {
                 LOGGER.error("Failed to load SpotiMC config, using defaults", e);
@@ -102,15 +118,23 @@ public class SpotiMCConfig {
         }
     }
 
+    public boolean isAdvancedMode() {
+        return mode == Mode.ADVANCED;
+    }
+
+    public boolean isBasicMode() {
+        return mode == Mode.BASIC;
+    }
+
     /**
-     * Checks whether we have stored Spotify tokens that might still be valid.
+     * Checks whether stored Spotify tokens exist.
      */
     public boolean hasStoredTokens() {
         return refreshToken != null && !refreshToken.isEmpty();
     }
 
     /**
-     * Clears all stored Spotify tokens.
+     * Clears stored Spotify tokens.
      */
     public void clearTokens() {
         accessToken = "";

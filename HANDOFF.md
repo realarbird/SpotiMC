@@ -4,6 +4,42 @@
 
 ---
 
+## Session 4 — 2026-07-30 (Basic/Advanced Modes, Last.fm, Social Feature, Album Cover Fix & Custom Keys)
+
+### What Was Done
+
+#### 1. Basic Mode (Last.fm) & Advanced Mode (Spotify) Dual Engine
+- **Mode Switch**: Added `Mode` enum (`BASIC`, `ADVANCED`) in `SpotiMCConfig.java`.
+- **Advanced Mode**:
+  - Requires Spotify Premium.
+  - Removed default hardcoded Client ID constant.
+  - Requires users to set up an app at `https://developer.spotify.com/dashboard` with redirect URL `http://127.0.0.1:4381/callback` and "Web API" enabled.
+  - Added in-game text fields (`EditBox`) for Client ID & Client Secret.
+- **Basic Mode**:
+  - Integrates Last.fm REST API ([last.fm/api/account/create](https://www.last.fm/api/account/create)) in `LastFmAPI.java`.
+  - Polls `user.getrecenttracks` every 3 seconds for current track, artist, and album art.
+  - Read-only track display without playback controls.
+
+#### 2. Album Cover Rendering Fix
+- **Root Cause**: HTTP client in `AlbumArtTexture.java` was missing HTTP redirect handling (`Redirect.ALWAYS`) and custom `User-Agent` headers, causing CDN requests to fail with 301/302 or 403 status codes.
+- **Fix**: Updated `AlbumArtTexture.java` with `.followRedirects(HttpClient.Redirect.ALWAYS)` and `User-Agent: SpotiMC/1.0 (Minecraft Fabric Mod)`. Stream data is read completely into byte arrays before `NativeImage.read()` decoding.
+
+#### 3. Social Feature (Overhead Song Rendering)
+- **Networking Payload**: Created `SpotiMCSongPayload.java` (Identifier `spotimc:song_update`).
+- **Server Broadcasting**: Common entrypoint `SpotiMCMod.java` registers C2S and S2C payload channels and broadcasts song updates to all connected players.
+- **Client Tracking**: `ClientSongTracker.java` stores overhead track info and broadcasts client song state.
+- **Overhead Renderer**: Added `EntityRendererMixin.java` injecting into `EntityRenderer.extractNameTags`. Renders `🎵 Track Name - Artist Name` in green (`#1DB954`) above player nametags in both Basic and Advanced modes.
+
+#### 4. Custom Keybindings & Overlay Scoping
+- **Rebindable Keybinds**: Keybinds are registered with Fabric and configurable via Minecraft's standard Controls -> Key Binds menu (accessible directly from `SpotiMCConfigScreen`).
+- **Basic Mode Overlay Notice**: Attempting to use playback controls (Play/Pause, Next, Previous, Search) in Basic Mode triggers an action bar message: `"Playback controls require Advanced Mode (Spotify Premium)"`.
+
+#### 5. GUI Redesign & Mod Icon Update
+- **Config GUI (`SpotiMCConfigScreen.java`)**: Added mode toggle button, multi-line setup instructions for Spotify Dashboard and Last.fm, text boxes for API credentials, and keybind settings button.
+- **Mod Icon**: Updated `src/main/resources/assets/spotimc/icon.png` using `/Users/ayanraj/Documents/SpotiMC/SpotiMC.png`.
+
+---
+
 ## Session 3 — 2026-07-30 (Security Hardening & Secret Protection)
 
 ### What Was Done
@@ -59,12 +95,6 @@
 - OAuth2 Authorization Code Flow (`http://127.0.0.1:4381/callback`).
 - HUD overlay with progress bar in Spotify Green (`#1DB954`).
 - Config Screen with HUD drag-to-reposition and scale controls.
-
----
-
-## Spotify OAuth Setup & PKCE Authentication
-- Uses PKCE (Proof Key for Code Exchange) flow — no client secrets required.
-- **Redirect URI**: `http://127.0.0.1:4381/callback`
 
 ---
 

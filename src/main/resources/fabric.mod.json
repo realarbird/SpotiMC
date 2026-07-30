@@ -3,7 +3,7 @@
   "id": "spotimc",
   "version": "${version}",
   "name": "SpotiMC",
-  "description": "Client-side Spotify integration for Minecraft. Control your music and see what's playing with an in-game HUD.",
+  "description": "Client-side Spotify & Last.fm integration for Minecraft. Control your music, see what's playing with an in-game HUD, and share your song overhead with other players.",
   "authors": ["ARBird"],
   "contact": {
     "homepage": "https://modrinth.com/project/spotimc",
@@ -12,8 +12,9 @@
   },
   "license": "GPL-3.0",
   "icon": "assets/spotimc/icon.png",
-  "environment": "client",
+  "environment": "*",
   "entrypoints": {
+    "main": ["com.realarbird.spotimc.SpotiMCMod"],
     "client": ["com.realarbird.spotimc.SpotiMCClient"]
   },
   "mixins": ["spotimc.mixins.json"],

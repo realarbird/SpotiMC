@@ -7,7 +7,6 @@ import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -20,7 +19,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages downloading and caching album art from Spotify as Minecraft textures.
+ * Manages downloading and caching album art from Spotify or Last.fm as Minecraft textures.
  * Downloads happen asynchronously to avoid blocking the game thread.
  */
 public class AlbumArtTexture {
@@ -33,14 +32,16 @@ public class AlbumArtTexture {
     private final HttpClient httpClient;
 
     public AlbumArtTexture() {
-        this.httpClient = HttpClient.newBuilder().build();
+        this.httpClient = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.ALWAYS)
+                .build();
     }
 
     /**
      * Gets the texture Identifier for a given album art URL.
      * If the texture is not yet cached, starts an async download and returns null.
      *
-     * @param url the Spotify album art image URL
+     * @param url the album art image URL
      * @return the texture Identifier if cached, or null if still loading
      */
     public Identifier getTexture(String url) {
@@ -55,34 +56,38 @@ public class AlbumArtTexture {
 
         // Start async download if not already in progress
         if (downloading.add(url)) {
-            httpClient.sendAsync(
-                    HttpRequest.newBuilder(URI.create(url)).GET().build(),
-                    HttpResponse.BodyHandlers.ofInputStream()
-            ).thenAccept(response -> {
-                if (response.statusCode() == 200) {
-                    try (InputStream is = response.body()) {
-                        NativeImage image = NativeImage.read(is);
-                        String hash = md5Hash(url);
-                        Identifier id = Identifier.fromNamespaceAndPath("spotimc", "albumart/" + hash);
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .header("User-Agent", "SpotiMC/1.0 (Minecraft Fabric Mod)")
+                    .GET()
+                    .build();
 
-                        // Register on the main thread and upload pixels to GPU
-                        Minecraft.getInstance().execute(() -> {
-                            DynamicTexture texture = new DynamicTexture(() -> "spotimc_art_" + hash, image);
-                            texture.upload();
-                            Minecraft.getInstance().getTextureManager().register(id, texture);
-                            registeredTextures.add(texture);
-                            textureCache.put(url, id);
-                        });
-                    } catch (Exception e) {
-                        LOGGER.error("Failed to read downloaded album art from {}", url, e);
-                    }
-                } else {
-                    LOGGER.error("Failed to download album art from {} - HTTP {}", url, response.statusCode());
-                }
-            }).exceptionally(ex -> {
-                LOGGER.error("Error downloading album art from {}", url, ex);
-                return null;
-            }).whenComplete((res, ex) -> downloading.remove(url));
+            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                    .thenAccept(response -> {
+                        if (response.statusCode() == 200 && response.body() != null && response.body().length > 0) {
+                            try {
+                                byte[] bytes = response.body();
+                                NativeImage image = NativeImage.read(bytes);
+                                String hash = md5Hash(url);
+                                Identifier id = Identifier.fromNamespaceAndPath("spotimc", "albumart/" + hash);
+
+                                // Register on the main thread and upload pixels to GPU
+                                Minecraft.getInstance().execute(() -> {
+                                    DynamicTexture texture = new DynamicTexture(() -> "spotimc_art_" + hash, image);
+                                    texture.upload();
+                                    Minecraft.getInstance().getTextureManager().register(id, texture);
+                                    registeredTextures.add(texture);
+                                    textureCache.put(url, id);
+                                });
+                            } catch (Exception e) {
+                                LOGGER.error("Failed to read downloaded album art from {}", url, e);
+                            }
+                        } else {
+                            LOGGER.error("Failed to download album art from {} - HTTP {}", url, response.statusCode());
+                        }
+                    }).exceptionally(ex -> {
+                        LOGGER.error("Error downloading album art from {}", url, ex);
+                        return null;
+                    }).whenComplete((res, ex) -> downloading.remove(url));
         }
 
         return null;
