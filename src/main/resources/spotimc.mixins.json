@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "com.realarbird.spotimc.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": []
+}

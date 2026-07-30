@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "spotimc",
+  "version": "${version}",
+  "name": "SpotiMC",
+  "description": "Client-side Spotify integration for Minecraft. Control your music and see what's playing with an in-game HUD.",
+  "authors": ["ARBird"],
+  "contact": {
+    "homepage": "https://modrinth.com/project/spotimc",
+    "sources": "https://github.com/realarbird/SpotiMC",
+    "issues": "https://github.com/realarbird/SpotiMC/issues"
+  },
+  "license": "GPL-3.0",
+  "icon": "assets/spotimc/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.realarbird.spotimc.SpotiMCClient"]
+  },
+  "mixins": ["spotimc.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

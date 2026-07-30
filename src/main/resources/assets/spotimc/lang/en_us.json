@@ -1,0 +1,9 @@
+{
+  "key.categories.spotimc": "SpotiMC",
+  "key.spotimc.next": "Next Track",
+  "key.spotimc.previous": "Previous Track",
+  "key.spotimc.playpause": "Play / Pause",
+  "key.spotimc.toggle_hud": "Toggle HUD",
+  "key.spotimc.config": "Open SpotiMC Config",
+  "key.spotimc.search_menu": "Spotify Search & Playlists Menu"
+}
