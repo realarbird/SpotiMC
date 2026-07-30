@@ -194,8 +194,8 @@ public class SpotiMCConfigScreen extends Screen {
 
         int center = this.width / 2;
 
-        // Title
-        gfx.centeredText(this.font, this.title, center, 10, 0xFFFFFF);
+        // Title (Opaque White)
+        gfx.centeredText(this.font, this.title, center, 10, 0xFFFFFFFF);
 
         // HUD Preview for dragging
         if (config.hudVisible) {

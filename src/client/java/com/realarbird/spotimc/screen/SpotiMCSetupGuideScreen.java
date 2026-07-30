@@ -28,7 +28,7 @@ public class SpotiMCSetupGuideScreen extends Screen {
     @Override
     protected void init() {
         int center = this.width / 2;
-        int y = 40;
+        int y = 35;
 
         if (mode == SpotiMCConfig.Mode.ADVANCED) {
             this.addRenderableWidget(Button.builder(
@@ -74,42 +74,49 @@ public class SpotiMCSetupGuideScreen extends Screen {
 
         int center = this.width / 2;
 
-        // Title
-        gfx.centeredText(this.font, this.title, center, 15, 0xFFFFFF);
+        // Title (Opaque White 0xFFFFFFFF)
+        gfx.centeredText(this.font, this.title, center, 14, 0xFFFFFFFF);
 
-        int textY = 75;
-        int lineGap = 14;
+        // Dark background card container behind text
+        int cardLeft = center - 195;
+        int cardRight = center + 195;
+        int cardTop = 64;
+        int cardBottom = this.height - 36;
+        gfx.fill(cardLeft, cardTop, cardRight, cardBottom, 0xEE12121E);
+
+        int textY = 72;
+        int lineGap = 13;
 
         if (mode == SpotiMCConfig.Mode.ADVANCED) {
-            gfx.centeredText(this.font, Component.literal("Spotify Setup (Requires Spotify Premium)"), center, textY, 0x1DB954);
+            gfx.centeredText(this.font, Component.literal("Spotify Setup (Requires Spotify Premium)"), center, textY, 0xFF1DB954);
             textY += lineGap + 4;
-            gfx.centeredText(this.font, Component.literal("1. Click button above to open Spotify Developer Dashboard."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("1. Click button above to open Spotify Developer Dashboard."), center, textY, 0xFFDDDDDD);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("2. Log in and click 'Create App'."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("2. Log in and click 'Create App'."), center, textY, 0xFFDDDDDD);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("3. Fill in any App Name & Description (e.g. My SpotiMC App)."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("3. Fill in any App Name & Description (e.g. My SpotiMC App)."), center, textY, 0xFFDDDDDD);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("4. Add Redirect URI: http://127.0.0.1:4381/callback"), center, textY, 0xFFD700);
+            gfx.centeredText(this.font, Component.literal("4. Add Redirect URI: http://127.0.0.1:4381/callback"), center, textY, 0xFFFFD700);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("5. Checkmark \"Web API\" under APIs used and click Save."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("5. Checkmark \"Web API\" under APIs used and click Save."), center, textY, 0xFFDDDDDD);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("6. Go to Settings and copy your Client ID and Client Secret."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("6. Go to Settings and copy your Client ID and Client Secret."), center, textY, 0xFFDDDDDD);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("7. Paste them into SpotiMC Settings and click Connect."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("7. Paste them into SpotiMC Settings and click Connect."), center, textY, 0xFFDDDDDD);
         } else {
-            gfx.centeredText(this.font, Component.literal("Last.fm Setup (Free - Read-Only Song Display)"), center, textY, 0x1DB954);
+            gfx.centeredText(this.font, Component.literal("Last.fm Setup (Free - Read-Only Song Display)"), center, textY, 0xFF1DB954);
             textY += lineGap + 4;
-            gfx.centeredText(this.font, Component.literal("1. Click button above to open Last.fm API Key creation page."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("1. Click button above to open Last.fm API Key creation page."), center, textY, 0xFFDDDDDD);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("2. Log in to Last.fm and fill out App Name & Description."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("2. Log in to Last.fm and fill out App Name & Description."), center, textY, 0xFFDDDDDD);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("3. Set Callback URL: http://127.0.0.1:4381/callback"), center, textY, 0xFFD700);
+            gfx.centeredText(this.font, Component.literal("3. Set Callback URL: http://127.0.0.1:4381/callback"), center, textY, 0xFFFFD700);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("4. Leave the Application Homepage field BLANK."), center, textY, 0xFF5555);
+            gfx.centeredText(this.font, Component.literal("4. Leave the Application Homepage field BLANK."), center, textY, 0xFFFF5555);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("5. Submit the form to generate your free API Key."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("5. Submit the form to generate your free API Key."), center, textY, 0xFFDDDDDD);
             textY += lineGap;
-            gfx.centeredText(this.font, Component.literal("6. Copy your API Key & Last.fm Username into SpotiMC Settings."), center, textY, 0xDDDDDD);
+            gfx.centeredText(this.font, Component.literal("6. Copy your API Key & Last.fm Username into SpotiMC Settings."), center, textY, 0xFFDDDDDD);
         }
     }
 

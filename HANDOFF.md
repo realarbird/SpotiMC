@@ -13,6 +13,7 @@
 - **Mode Labels**: Config UI clearly displays `Mode: ADVANCED (Requires Spotify Premium)` when Advanced Mode is selected and `Mode: BASIC (Free)` when Basic Mode is selected.
 - **Dedicated Setup Guide Menu (`SpotiMCSetupGuideScreen.java`)**:
   - `How to Get API Keys (Setup Guide)...` button opens a clean sub-screen menu displaying step-by-step setup instructions and a direct browser launcher button for Spotify (`https://developer.spotify.com/dashboard`) or Last.fm (`https://www.last.fm/api/account/create`).
+- **Text Visibility Fix**: Fixed text color format in `SpotiMCSetupGuideScreen.java` to use 32-bit ARGB with explicit `0xFF` alpha prefix (e.g. `0xFFFFFFFF`, `0xFF1DB954`, `0xFFDDDDDD`). Rendered a dark card background container (`0xEE12121E`) behind instruction text for 100% crystal-clear readability.
 
 #### Step-by-Step Setup Instructions
 
