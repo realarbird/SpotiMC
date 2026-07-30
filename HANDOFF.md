@@ -10,6 +10,10 @@
 
 #### 1. Basic Mode (Last.fm) & Advanced Mode (Spotify) Dual Engine
 - **Mode Switch**: Added `Mode` enum (`BASIC`, `ADVANCED`) in `SpotiMCConfig.java`.
+- **Mode Labels**: Config UI clearly displays `Mode: ADVANCED (Requires Spotify Premium)` when Advanced Mode is selected and `Mode: BASIC (Free)` when Basic Mode is selected.
+- **Interactive API Key Buttons**:
+  - Advanced Mode: `Get API Keys (Open Spotify Dashboard)` button launches `https://developer.spotify.com/dashboard` directly in the user's web browser.
+  - Basic Mode: `Get Last.fm API Key (Free)` button launches `https://www.last.fm/api/account/create` directly in the user's web browser.
 - **Advanced Mode**:
   - Requires Spotify Premium.
   - Removed default hardcoded Client ID constant.
@@ -35,7 +39,7 @@
 - **Basic Mode Overlay Notice**: Attempting to use playback controls (Play/Pause, Next, Previous, Search) in Basic Mode triggers an action bar message: `"Playback controls require Advanced Mode (Spotify Premium)"`.
 
 #### 5. GUI Redesign & Mod Icon Update
-- **Config GUI (`SpotiMCConfigScreen.java`)**: Added mode toggle button, multi-line setup instructions for Spotify Dashboard and Last.fm, text boxes for API credentials, and keybind settings button.
+- **Config GUI (`SpotiMCConfigScreen.java`)**: Added mode toggle button, web browser launch buttons for API keys, multi-line setup instructions, text boxes for credentials, and keybind settings button.
 - **Mod Icon**: Updated `src/main/resources/assets/spotimc/icon.png` using `/Users/ayanraj/Documents/SpotiMC/SpotiMC.png`.
 
 ---

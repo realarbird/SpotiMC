@@ -9,11 +9,15 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import org.slf4j.LoggerFactory;
+
+import java.awt.Desktop;
+import java.net.URI;
 
 /**
  * In-game configuration screen for SpotiMC.
  * Supports mode switching (Basic vs Advanced), custom Spotify/Last.fm API credential setup,
- * HUD customization, and keybind navigation.
+ * interactive API key acquisition buttons, HUD customization, and keybind navigation.
  */
 public class SpotiMCConfigScreen extends Screen {
 
@@ -38,10 +42,13 @@ public class SpotiMCConfigScreen extends Screen {
     @Override
     protected void init() {
         int center = this.width / 2;
-        int y = 28;
+        int y = 25;
 
-        // 1. Mode Switcher
-        String modeLabel = config.isAdvancedMode() ? "Mode: ADVANCED (Spotify)" : "Mode: BASIC (Last.fm)";
+        // 1. Mode Switcher Button with clear mode indicators
+        String modeLabel = config.isAdvancedMode()
+                ? "Mode: ADVANCED (Requires Spotify Premium)"
+                : "Mode: BASIC (Free)";
+
         this.addRenderableWidget(Button.builder(
                 Component.literal(modeLabel),
                 button -> {
@@ -50,13 +57,18 @@ public class SpotiMCConfigScreen extends Screen {
                     SpotiMCClient.updateActiveMode();
                     this.rebuildWidgets();
                 }
-        ).bounds(center - 100, y, 200, 20).build());
+        ).bounds(center - 120, y, 240, 20).build());
 
-        y += 26;
+        y += 24;
 
         if (config.isAdvancedMode()) {
-            // Advanced Mode Inputs (Spotify)
-            y += 45; // Leave space for multi-line instructions rendered in extractRenderState
+            // Advanced Mode: Spotify Setup
+            this.addRenderableWidget(Button.builder(
+                    Component.literal("Get API Keys (Open Spotify Dashboard)"),
+                    button -> openUrl("https://developer.spotify.com/dashboard")
+            ).bounds(center - 120, y, 240, 20).build());
+
+            y += 42; // Space for instructions below button
 
             clientIdBox = new EditBox(this.font, center - 100, y, 200, 18, Component.literal("Client ID"));
             clientIdBox.setHint(Component.literal("Client ID"));
@@ -90,8 +102,13 @@ public class SpotiMCConfigScreen extends Screen {
             y += 24;
 
         } else {
-            // Basic Mode Inputs (Last.fm)
-            y += 35; // Leave space for instructions
+            // Basic Mode: Last.fm Setup
+            this.addRenderableWidget(Button.builder(
+                    Component.literal("Get Last.fm API Key (Free)"),
+                    button -> openUrl("https://www.last.fm/api/account/create")
+            ).bounds(center - 120, y, 240, 20).build());
+
+            y += 34; // Space for instructions below button
 
             lastFmApiKeyBox = new EditBox(this.font, center - 100, y, 200, 18, Component.literal("Last.fm API Key"));
             lastFmApiKeyBox.setHint(Component.literal("Last.fm API Key"));
@@ -168,6 +185,25 @@ public class SpotiMCConfigScreen extends Screen {
         ).bounds(center - 100, this.height - 25, 200, 20).build());
     }
 
+    private void openUrl(String url) {
+        try {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                Desktop.getDesktop().browse(new URI(url));
+            } else {
+                String os = System.getProperty("os.name").toLowerCase();
+                if (os.contains("mac")) {
+                    Runtime.getRuntime().exec(new String[]{"open", url});
+                } else if (os.contains("win")) {
+                    Runtime.getRuntime().exec(new String[]{"rundll32", "url.dll,FileProtocolHandler", url});
+                } else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
+                    Runtime.getRuntime().exec(new String[]{"xdg-open", url});
+                }
+            }
+        } catch (Exception e) {
+            LoggerFactory.getLogger("SpotiMC").error("Failed to open URL in web browser: {}", url, e);
+        }
+    }
+
     private void saveInputFields() {
         if (clientIdBox != null) config.clientId = clientIdBox.getValue().trim();
         if (clientSecretBox != null) config.clientSecret = clientSecretBox.getValue().trim();
@@ -187,17 +223,14 @@ public class SpotiMCConfigScreen extends Screen {
 
         if (config.isAdvancedMode()) {
             // Instructions for Spotify Advanced Mode
-            int instY = 56;
-            gfx.centeredText(this.font, Component.literal("1. Go to: https://developer.spotify.com/dashboard"), center, instY, 0xAAAAAA);
-            gfx.centeredText(this.font, Component.literal("2. Create an App (fill any Name & Description)"), center, instY + 10, 0xAAAAAA);
-            gfx.centeredText(this.font, Component.literal("3. Add Redirect URL: http://127.0.0.1:4381/callback"), center, instY + 20, 0xFFD700);
-            gfx.centeredText(this.font, Component.literal("4. Checkmark \"Web API\" and Save"), center, instY + 30, 0xAAAAAA);
+            int instY = 72;
+            gfx.centeredText(this.font, Component.literal("1. Create App -> Redirect URI: http://127.0.0.1:4381/callback"), center, instY, 0xFFD700);
+            gfx.centeredText(this.font, Component.literal("2. Checkmark \"Web API\" -> Paste Client ID & Secret below:"), center, instY + 10, 0xAAAAAA);
         } else {
             // Instructions for Last.fm Basic Mode
-            int instY = 56;
-            gfx.centeredText(this.font, Component.literal("1. Go to: https://www.last.fm/api/account/create"), center, instY, 0xAAAAAA);
-            gfx.centeredText(this.font, Component.literal("2. Fill in App Name & Description to get an API Key"), center, instY + 10, 0xAAAAAA);
-            gfx.centeredText(this.font, Component.literal("3. Enter API Key & Username below:"), center, instY + 20, 0xFFD700);
+            int instY = 72;
+            gfx.centeredText(this.font, Component.literal("1. Create account & app to get your free API Key"), center, instY, 0xAAAAAA);
+            gfx.centeredText(this.font, Component.literal("2. Enter API Key & Username below:"), center, instY + 10, 0xFFD700);
         }
 
         // HUD Preview for dragging
