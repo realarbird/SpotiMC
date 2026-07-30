@@ -46,6 +46,20 @@
 
 ## Chronological Session Logs
 
+### Session 10 — 2026-07-30 (Album Art Texture Loader Rewrite & Blit UV Fix)
+- **Album Art Still Showing Fallback Only (Both Modes)**:
+  - *Root Cause 1*: `AlbumArtTexture.java` used `HttpClient.sendAsync()` to download images, which delegates to an internal JVM executor. Inside the Minecraft JVM, this executor may silently fail, drop callbacks, or be subject to thread pool restrictions that prevent the download from completing. The previous Session 9 fix used `resizeSubRectTo()` to resize images to 64×64, but this is unnecessary overhead and adds another failure point.
+  - *Root Cause 2*: The HUD `blit` call used the 11-parameter overload `blit(pipeline, id, x, y, u, v, 32, 32, 64, 64, color)` which internally passes `drawWidth` as `srcRegionWidth`, causing UV sampling of only the top-left quarter (32/64 = 50%) of the texture instead of the full image.
+  - *Root Cause 3*: `DynamicTexture(Supplier, NativeImage)` constructor already calls `createTexture()` and `upload()` internally. The redundant `texture.upload()` call after construction was harmless but indicated misunderstanding of the API.
+  - *Fix*: Complete rewrite of `AlbumArtTexture.java`:
+    - Replaced `httpClient.sendAsync()` with `CompletableFuture.runAsync()` + blocking `httpClient.send()`, mirroring the proven working pattern from `SpotifyAPI.pollPlaybackState()`.
+    - Removed the intermediate `NativeImage` resize step — the decoded image is passed directly to `DynamicTexture` at its original resolution (typically 300×300 for Spotify, variable for Last.fm).
+    - Added `CachedTexture` record storing `(Identifier, width, height)` so the HUD can blit with correct UV coordinates matching the actual texture dimensions.
+    - Added comprehensive `LOGGER.info/error` logging at every step (download start, byte count, decode dimensions, registration, failures).
+  - *Fix HUD*: `SpotiMCHud.java` now uses the 12-parameter `blit` overload with `srcRegionWidth=textureWidth, srcRegionHeight=textureHeight` to sample the entire texture, rendering it scaled down to the 32×32 HUD cover slot.
+  - *Fix Diagnostics*: Added `LOGGER` to `PlaybackState.java` and `LastFmAPI.java` to log extracted `albumArtUrl` values, making it possible to trace whether the API returns image URLs.
+  - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
+
 ### Session 9 — 2026-07-30 (Advanced Mode Album Art & Texture Decoding Fix)
 - **Advanced Mode Album Art & Podcast Cover Resolution**:
   - *Root Cause 1*: In `PlaybackState.fromJson`, Spotify item JSON was only checked for `item.album.images`. Podcasts, shows, and non-standard tracks return image arrays under `item.show.images` or `item.images`, causing `albumArtUrl` to remain empty.
@@ -145,7 +159,7 @@
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew build
   ```
 - **Built Artifact**: `build/libs/spotimc-1.0.0.jar`
-- **Latest Verification (Session 7)**:
+- **Latest Verification (Session 10)**:
   ```bash
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build
   ```

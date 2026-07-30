@@ -137,6 +137,12 @@ public class LastFmAPI {
                             albumArtUrl = resolveAlbumArtUrl(apiKey, artistName, albumName, trackName);
                         }
 
+                        if (albumArtUrl.isEmpty()) {
+                            LOGGER.warn("No album art URL resolved for Last.fm track '{}' by '{}'", trackName, artistName);
+                        } else {
+                            LOGGER.debug("Last.fm album art URL for '{}': {}", trackName, albumArtUrl);
+                        }
+
                         boolean isNowPlaying = false;
                         if (trackObj.has("@attr") && trackObj.get("@attr").isJsonObject()) {
                             JsonObject attr = trackObj.getAsJsonObject("@attr");

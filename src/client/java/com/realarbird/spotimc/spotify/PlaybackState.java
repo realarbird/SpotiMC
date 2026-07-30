@@ -3,6 +3,8 @@ package com.realarbird.spotimc.spotify;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public record PlaybackState(
         String trackName,
@@ -15,6 +17,8 @@ public record PlaybackState(
         boolean shuffleState,
         String repeatState // "off", "track", "context"
 ) {
+    private static final Logger LOGGER = LoggerFactory.getLogger("SpotiMC/Playback");
+
     public static final PlaybackState EMPTY = new PlaybackState(
             "", "", "", "", false, 0, 0, false, "off"
     );
@@ -77,8 +81,15 @@ public record PlaybackState(
                 albumArtUrl = extractBestImageUrl(item.getAsJsonArray("images"));
             }
 
+            if (albumArtUrl.isEmpty()) {
+                LOGGER.warn("No album art URL found for track '{}' by '{}'", trackName, artistName);
+            } else {
+                LOGGER.debug("Album art URL for '{}': {}", trackName, albumArtUrl);
+            }
+
             return new PlaybackState(trackName, artistName, albumName, albumArtUrl, isPlaying, progressMs, durationMs, shuffleState, repeatState);
         } catch (Exception e) {
+            LOGGER.error("Error parsing playback state JSON", e);
             return EMPTY;
         }
     }

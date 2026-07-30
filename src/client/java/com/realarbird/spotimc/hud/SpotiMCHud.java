@@ -19,6 +19,8 @@ import net.minecraft.resources.Identifier;
 public class SpotiMCHud implements HudElement {
 
     public static final Identifier DEFAULT_COVER = Identifier.fromNamespaceAndPath("spotimc", "textures/gui/default_cover.png");
+    /** The default cover PNG is 64x64 pixels. */
+    private static final int DEFAULT_COVER_SIZE = 64;
 
     private static SpotiMCHud instance;
     private final AlbumArtTexture albumArtTexture;
@@ -71,19 +73,32 @@ public class SpotiMCHud implements HudElement {
         gfx.fill(0, 0, width, height, 0xCC1A1A2E);
 
         // Album Art (32x32 at position 9,9)
-        Identifier artId = null;
+        // Use the 12-parameter blit overload so we can specify separate draw
+        // size (32x32) and source region size (full texture) to sample the
+        // entire texture rather than just the top-left quarter.
+        AlbumArtTexture.CachedTexture cachedArt = null;
         if (playback.albumArtUrl() != null && !playback.albumArtUrl().isEmpty()) {
-            artId = albumArtTexture.getTexture(playback.albumArtUrl());
+            cachedArt = albumArtTexture.getCachedTexture(playback.albumArtUrl());
         }
 
-        if (artId != null) {
-            // Minecraft 26.2's Identifier-only overload expects rectangle coordinates, not
-            // texture dimensions. Use the explicit texture overload so the entire 64px
-            // dynamic texture is sampled into the 32px HUD cover.
-            gfx.blit(RenderPipelines.GUI_TEXTURED, artId, 9, 9, 0.0F, 0.0F, 32, 32, 64, 64, 0xFFFFFFFF);
+        if (cachedArt != null) {
+            // Draw the downloaded album art. Source region = full texture.
+            gfx.blit(RenderPipelines.GUI_TEXTURED, cachedArt.id(),
+                    9, 9,                               // draw position (x, y)
+                    0.0F, 0.0F,                         // UV offset
+                    32, 32,                              // draw size (width, height)
+                    cachedArt.width(), cachedArt.height(), // source region size
+                    cachedArt.width(), cachedArt.height()  // texture dimensions
+            );
         } else {
-            // Draw default cover picture
-            gfx.blit(RenderPipelines.GUI_TEXTURED, DEFAULT_COVER, 9, 9, 0.0F, 0.0F, 32, 32, 64, 64, 0xFFFFFFFF);
+            // Draw default cover picture — 64x64 PNG, sample the full texture
+            gfx.blit(RenderPipelines.GUI_TEXTURED, DEFAULT_COVER,
+                    9, 9,
+                    0.0F, 0.0F,
+                    32, 32,
+                    DEFAULT_COVER_SIZE, DEFAULT_COVER_SIZE,
+                    DEFAULT_COVER_SIZE, DEFAULT_COVER_SIZE
+            );
         }
 
         // Track name and artist — truncated with ... if longer than 120px
