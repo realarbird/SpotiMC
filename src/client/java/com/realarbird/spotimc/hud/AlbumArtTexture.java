@@ -69,7 +69,25 @@ public class AlbumArtTexture {
                         if (response.statusCode() == 200 && response.body() != null && response.body().length > 0) {
                             try {
                                 byte[] bytes = response.body();
-                                NativeImage image = NativeImage.read(bytes);
+                                NativeImage loaded = NativeImage.read(bytes);
+                                int srcW = loaded.getWidth();
+                                int srcH = loaded.getHeight();
+
+                                NativeImage image = new NativeImage(NativeImage.Format.RGBA, 64, 64, false);
+                                for (int x = 0; x < 64; x++) {
+                                    for (int y = 0; y < 64; y++) {
+                                        int srcX = Math.min(srcW - 1, x * srcW / 64);
+                                        int srcY = Math.min(srcH - 1, y * srcH / 64);
+                                        int color = loaded.getPixel(srcX, srcY);
+                                        int alpha = (color >> 24) & 0xFF;
+                                        if (alpha == 0) {
+                                            color |= 0xFF000000;
+                                        }
+                                        image.setPixel(x, y, color);
+                                    }
+                                }
+                                loaded.close();
+
                                 String hash = md5Hash(url);
                                 Identifier id = Identifier.fromNamespaceAndPath("spotimc", "albumart/" + hash);
 

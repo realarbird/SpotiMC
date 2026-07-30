@@ -45,6 +45,19 @@
 
 ## Chronological Session Logs
 
+### Session 6 — 2026-07-30 (Album Cover Resampling Fix, Playlist Layout Fix & Spotify API 401 Recovery)
+- **Album Cover Rendering & Resampling Fix**:
+  - *Root Cause*: `default_cover.png` was a 1024x1024 JPEG image, and downloaded Spotify/Last.fm album art varied in dimensions (300x300, 640x640) and RGB format. `gfx.blit()` passed `32, 32` as texture dimensions, sampling only top-left 0.1% of images.
+  - *Fix*: Resized `default_cover.png` to 64x64 PNG. `AlbumArtTexture.java` resamples all downloaded album art to uniform 64x64 RGBA `NativeImage` objects with opaque alpha. Updated `SpotiMCHud.java` `gfx.blit()` texture dimensions to `64, 64`.
+- **Playlists Menu Button Overlap Fix**:
+  - *Root Cause*: Playlist Detail view header buttons (`Back`, `Play Playlist`, `Shuffle`, `Repeat`) were created directly without being tracked, so `rebuildTabWidgets()` left old buttons on screen. Shuffle and Repeat button widths (52px) were too small for their text labels.
+  - *Fix*: Tracked header buttons in `detailHeaderButtons` list and cleaned them up in `rebuildTabWidgets()`. Redesigned header to a 2-row layout (`Back` 55px + `Play Playlist` 200px on Row 1; `Shuffle` 125px + `Repeat` 125px on Row 2).
+- **Search & Playlist Track Resolution & 401 Token Refresh**:
+  - *Root Cause*: `searchTracks()`, `getUserPlaylists()`, and `getPlaylistTracks()` returned empty lists on HTTP 401 Unauthorized without refreshing tokens or logging warnings.
+  - *Fix*: Added HTTP 401 handling calling `auth.refreshTokenAsync()` and warning logging. Added URI-based fallback for missing playlist IDs in `getUserPlaylists()`. Enhanced `getPlaylistTracks()` JSON parsing to safely extract tracks from varied wrapper formats (`track`, `item`, or direct object).
+
+---
+
 ### Session 5 — 2026-07-30 (Album Art Blit Fix, Playlist Expansion, Repeat/Shuffle & Social Privacy Controls)
 - **Album Cover Rendering Fix**:
   - *Root Cause*: `gfx.blit(artId, 9, 9, 32, 32, 0f, 0f, 1f, 1f)` in `SpotiMCHud.java` passed 1f for region width/height. In Minecraft 26.2 `GuiGraphics`, region dimensions are texel counts, causing Minecraft to stretch a single top-left texel across the 32x32 frame.

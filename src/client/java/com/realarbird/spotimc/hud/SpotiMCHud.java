@@ -76,10 +76,10 @@ public class SpotiMCHud implements HudElement {
         }
 
         if (artId != null) {
-            gfx.blit(artId, 9, 9, 0, 0, 32, 32, 32, 32);
+            gfx.blit(artId, 9, 9, 0, 0, 32, 32, 64, 64);
         } else {
             // Draw default cover picture
-            gfx.blit(DEFAULT_COVER, 9, 9, 0, 0, 32, 32, 32, 32);
+            gfx.blit(DEFAULT_COVER, 9, 9, 0, 0, 32, 32, 64, 64);
         }
 
         // Track name and artist — truncated with ... if longer than 120px

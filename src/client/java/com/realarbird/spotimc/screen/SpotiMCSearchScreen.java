@@ -29,6 +29,7 @@ public class SpotiMCSearchScreen extends Screen {
 
     // Search UI
     private EditBox searchBox;
+    private Button searchButton;
     private final List<SpotifyAPI.TrackSearchResult> trackResults = new ArrayList<>();
     private final List<Button> trackResultButtons = new ArrayList<>();
 
@@ -40,6 +41,7 @@ public class SpotiMCSearchScreen extends Screen {
     private SpotifyAPI.PlaylistSearchResult selectedPlaylist;
     private final List<SpotifyAPI.TrackSearchResult> playlistTrackResults = new ArrayList<>();
     private final List<Button> playlistTrackButtons = new ArrayList<>();
+    private final List<Button> detailHeaderButtons = new ArrayList<>();
 
     private String statusMessage = "";
 
@@ -83,12 +85,19 @@ public class SpotiMCSearchScreen extends Screen {
         trackResultButtons.forEach(this::removeWidget);
         playlistResultButtons.forEach(this::removeWidget);
         playlistTrackButtons.forEach(this::removeWidget);
+        detailHeaderButtons.forEach(this::removeWidget);
         trackResultButtons.clear();
         playlistResultButtons.clear();
         playlistTrackButtons.clear();
+        detailHeaderButtons.clear();
 
         if (searchBox != null) {
             this.removeWidget(searchBox);
+            searchBox = null;
+        }
+        if (searchButton != null) {
+            this.removeWidget(searchButton);
+            searchButton = null;
         }
 
         int center = this.width / 2;
@@ -102,10 +111,11 @@ public class SpotiMCSearchScreen extends Screen {
             this.addRenderableWidget(searchBox);
 
             // Search Trigger Button
-            this.addRenderableWidget(Button.builder(
+            searchButton = Button.builder(
                     Component.literal("Search"),
                     b -> performSearch()
-            ).bounds(center + 70, 58, 60, 18).build());
+            ).bounds(center + 70, 58, 60, 18).build();
+            this.addRenderableWidget(searchButton);
 
             // Track Result Buttons
             int y = 82;
@@ -153,7 +163,7 @@ public class SpotiMCSearchScreen extends Screen {
                 y += 19;
             }
         } else if (currentTab == Tab.PLAYLIST_DETAIL && selectedPlaylist != null) {
-            // Playlist Header Controls
+            // Playlist Header Controls (Row 1: Back & Play Playlist)
             PlaybackState playback = SpotiMCClient.SPOTIFY_API != null ? SpotiMCClient.SPOTIFY_API.getCurrentPlayback() : PlaybackState.EMPTY;
             String shuffleLabel = "🔀 Shuffle: " + (playback.shuffleState() ? "ON" : "OFF");
             
@@ -161,15 +171,17 @@ public class SpotiMCSearchScreen extends Screen {
             if ("track".equalsIgnoreCase(playback.repeatState())) repeatLabel = "🔁 Repeat: ONE";
             else if ("context".equalsIgnoreCase(playback.repeatState())) repeatLabel = "🔁 Repeat: ALL";
 
-            this.addRenderableWidget(Button.builder(
+            Button backBtn = Button.builder(
                     Component.literal("◀ Back"),
                     b -> {
                         currentTab = Tab.PLAYLISTS;
                         rebuildTabWidgets();
                     }
-            ).bounds(center - 130, 56, 50, 18).build());
+            ).bounds(center - 130, 56, 55, 18).build();
+            detailHeaderButtons.add(backBtn);
+            this.addRenderableWidget(backBtn);
 
-            this.addRenderableWidget(Button.builder(
+            Button playPlaylistBtn = Button.builder(
                     Component.literal("▶ Play Playlist"),
                     b -> {
                         if (SpotiMCClient.SPOTIFY_API != null) {
@@ -177,9 +189,12 @@ public class SpotiMCSearchScreen extends Screen {
                             statusMessage = "Playing Playlist: " + selectedPlaylist.name();
                         }
                     }
-            ).bounds(center - 76, 56, 95, 18).build());
+            ).bounds(center - 70, 56, 200, 18).build();
+            detailHeaderButtons.add(playPlaylistBtn);
+            this.addRenderableWidget(playPlaylistBtn);
 
-            this.addRenderableWidget(Button.builder(
+            // Row 2: Shuffle & Repeat Toggles
+            Button shuffleBtn = Button.builder(
                     Component.literal(shuffleLabel),
                     b -> {
                         if (SpotiMCClient.SPOTIFY_API != null) {
@@ -187,10 +202,12 @@ public class SpotiMCSearchScreen extends Screen {
                             rebuildTabWidgets();
                         }
                     }
-            ).bounds(center + 22, 56, 52, 18).build());
+            ).bounds(center - 130, 78, 125, 18).build();
+            detailHeaderButtons.add(shuffleBtn);
+            this.addRenderableWidget(shuffleBtn);
 
             String finalRepeatLabel = repeatLabel;
-            this.addRenderableWidget(Button.builder(
+            Button repeatBtn = Button.builder(
                     Component.literal(finalRepeatLabel),
                     b -> {
                         if (SpotiMCClient.SPOTIFY_API != null) {
@@ -201,10 +218,12 @@ public class SpotiMCSearchScreen extends Screen {
                             rebuildTabWidgets();
                         }
                     }
-            ).bounds(center + 77, 56, 53, 18).build());
+            ).bounds(center + 5, 78, 125, 18).build();
+            detailHeaderButtons.add(repeatBtn);
+            this.addRenderableWidget(repeatBtn);
 
-            // Playlist Track Buttons
-            int y = 78;
+            // Playlist Track Buttons starting at y = 100
+            int y = 100;
             for (SpotifyAPI.TrackSearchResult track : playlistTrackResults) {
                 if (y + 18 > this.height - 32) break;
 
