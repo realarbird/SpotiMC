@@ -27,14 +27,29 @@ public abstract class EntityRendererMixin {
 
         if (entity instanceof Player player) {
             ClientSongTracker.PlayerSongInfo songInfo = ClientSongTracker.getSong(player.getUUID());
-            if (songInfo != null && songInfo.isPlaying() && songInfo.trackName() != null && !songInfo.trackName().isEmpty()) {
-                Component songText = Component.literal("\n🎵 " + songInfo.trackName() + " - " + songInfo.artistName()).withColor(0x1DB954);
-                if (state.nameTag == null) {
-                    state.nameTag = Component.empty().append(player.getDisplayName()).append(songText);
-                } else {
-                    state.nameTag = Component.empty().append(state.nameTag).append(songText);
-                }
+            // NameTagFeatureRenderer submits one formatted line at a time; embedded
+            // newlines are not laid out as a second line. Submit the normal name as
+            // the upper line and the listening status as the lower name-tag line.
+            if (songInfo != null && songInfo.isPlaying()
+                    && songInfo.trackName() != null && !songInfo.trackName().isEmpty()
+                    && state.nameTag != null && state.nameTagAttachment != null) {
+                Component playerName = state.nameTag;
+                state.scoreText = state.scoreText == null
+                        ? playerName
+                        : Component.empty().append(state.scoreText).append(" ").append(playerName);
+                state.nameTag = Component.literal(formatSong(songInfo)).withColor(0x1DB954);
             }
         }
+    }
+
+    private static String formatSong(ClientSongTracker.PlayerSongInfo songInfo) {
+        String track = abbreviate(songInfo.trackName(), 38);
+        String artist = abbreviate(songInfo.artistName(), 26);
+        return artist.isEmpty() ? "♫ " + track : "♫ " + track + " — " + artist;
+    }
+
+    private static String abbreviate(String value, int maxLength) {
+        if (value == null || value.isEmpty()) return "";
+        return value.length() <= maxLength ? value : value.substring(0, maxLength - 1) + "…";
     }
 }

@@ -67,6 +67,7 @@ public class SpotiMCSocialConfigScreen extends Screen {
         gfx.centeredText(this.font, Component.literal("Visual: Controls whether overhead songs are visible on other players."), center, 69, 0xFFAAAAAA);
 
         gfx.centeredText(this.font, Component.literal("Privacy: Controls whether your playing song is sent to other players."), center, 119, 0xFFAAAAAA);
+        gfx.centeredText(this.font, Component.literal("Multiplayer requires SpotiMC on the server and every participating client."), center, 139, 0xFFAAAAAA);
     }
 
     @Override

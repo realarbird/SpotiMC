@@ -12,7 +12,8 @@
   - **Basic Mode**: Uses Last.fm REST API (`user.getrecenttracks`). Free to use, read-only track display (no playback controls).
 - **Social Overhead Track Display**:
   - Broadcasts song updates via Fabric C2S/S2C custom network payloads (`spotimc:song_update`).
-  - Injects into player rendering (`EntityRendererMixin`) to render `🎵 Track Name - Artist Name` in green (`#1DB954`) above player nametags in 3D world space.
+  - Injects into player rendering (`EntityRendererMixin`) to render the player name and a separate green `♫ Track Name — Artist Name` line underneath it in 3D world space.
+  - The dedicated server and every player who should share/see statuses must run the same SpotiMC version: the server routes the custom payload between clients.
 - **Non-Blocking Asynchronous Design**:
   - All HTTP clients and requests use strict 5-second connection & request timeouts (`Duration.ofSeconds(5)`).
   - Token refresh and API polling run off the main thread to prevent Minecraft client freezes.
@@ -44,6 +45,21 @@
 ---
 
 ## Chronological Session Logs
+
+### Session 7 — 2026-07-30 (Minecraft 26.2 HUD Fix, Current Spotify Library API & Reliable Social Tags)
+- **HUD Album Cover Rendering Fix**:
+  - *Root Cause*: Minecraft 26.2 changed `GuiGraphicsExtractor.blit(Identifier, ...)`. The old argument pattern was interpreted as a zero-width, zero-height rectangle, so neither the fallback nor downloaded cover could render.
+  - *Fix*: `SpotiMCHud.java` now calls the explicit `RenderPipelines.GUI_TEXTURED` overload with a 32×32 destination and 64×64 source texture dimensions for both dynamic and fallback cover art.
+- **Spotify Search & Playlist Data Fix**:
+  - *Root Cause*: Spotify now limits Search to 10 results per type, but SpotiMC requested 20 and converted the resulting HTTP 400 into “No songs found.” Spotify playlist summaries now publish their count in `items.total` (with `tracks` deprecated), and the preferred item route is `/playlists/{id}/items` rather than `/tracks`.
+  - *Fix*: Search requests use `limit=10`; playlist counts prefer `items.total`; playlist loading uses `/items`; and UI failures now show a useful connection/permission/rate-limit error instead of incorrectly reporting an empty library.
+- **OAuth Refresh Retry**:
+  - *Root Cause*: A 401 refreshed the token in the background but returned an empty result to the initial search/playlist request.
+  - *Fix*: `SpotifyAuth.refreshTokenAsync()` coalesces concurrent refreshes and returns their result. Spotify library reads retry once using the newly refreshed token.
+- **Multiplayer Listening Status Fix**:
+  - *Root Cause*: Minecraft’s 26.2 name-tag feature renders a single formatted line; newline characters are not laid out as a second overhead line.
+  - *Fix*: The renderer now submits the existing player name as the upper label and a bounded green `♫ Track — Artist` as its own lower label. The server also replaces client-supplied player identity with the authenticated sender and bounds packet text lengths.
+  - *Deployment*: Install the resulting JAR on the dedicated server and on each participating client. Both clients must keep **Share My Listening Stats** and **Show Others’ Listening Stats** enabled as appropriate.
 
 ### Session 6 — 2026-07-30 (Album Cover Resampling Fix, Playlist Layout Fix & Spotify API 401 Recovery)
 - **Album Cover Rendering & Resampling Fix**:
@@ -116,4 +132,9 @@
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew build
   ```
 - **Built Artifact**: `build/libs/spotimc-1.0.0.jar`
+- **Latest Verification (Session 7)**:
+  ```bash
+  JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build
+  ```
+  Completed successfully on 2026-07-30.
 - **GitHub Repository**: [https://github.com/realarbird/SpotiMC](https://github.com/realarbird/SpotiMC) (`main` branch)

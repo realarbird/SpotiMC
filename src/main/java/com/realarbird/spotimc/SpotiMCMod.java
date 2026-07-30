@@ -28,9 +28,18 @@ public class SpotiMCMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(SpotiMCSongPayload.TYPE, (payload, context) -> {
             ServerPlayer sender = context.player();
             context.server().execute(() -> {
+                // Ignore the identity supplied by the client so a player can update
+                // only their own overhead status.
+                SpotiMCSongPayload update = new SpotiMCSongPayload(
+                        sender.getUUID(),
+                        sender.getName().getString(),
+                        payload.trackName(),
+                        payload.artistName(),
+                        payload.isPlaying()
+                );
                 for (ServerPlayer player : context.server().getPlayerList().getPlayers()) {
                     if (player != sender && ServerPlayNetworking.canSend(player, SpotiMCSongPayload.TYPE)) {
-                        ServerPlayNetworking.send(player, payload);
+                        ServerPlayNetworking.send(player, update);
                     }
                 }
             });

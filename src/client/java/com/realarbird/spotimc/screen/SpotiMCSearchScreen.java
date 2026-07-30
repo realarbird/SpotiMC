@@ -255,11 +255,13 @@ public class SpotiMCSearchScreen extends Screen {
         if (query.trim().isEmpty()) return;
 
         statusMessage = "Searching...";
-        SpotiMCClient.SPOTIFY_API.searchTracks(query).thenAccept(results -> {
+        SpotiMCClient.SPOTIFY_API.searchTracks(query).thenAccept(result -> {
             Minecraft.getInstance().execute(() -> {
                 trackResults.clear();
-                trackResults.addAll(results);
-                statusMessage = results.isEmpty() ? "No songs found" : "Found " + results.size() + " songs";
+                trackResults.addAll(result.items());
+                statusMessage = result.succeeded()
+                        ? (result.items().isEmpty() ? "No songs found" : "Found " + result.items().size() + " songs")
+                        : result.errorMessage();
                 rebuildTabWidgets();
             });
         });
@@ -268,11 +270,13 @@ public class SpotiMCSearchScreen extends Screen {
     private void fetchPlaylists() {
         if (SpotiMCClient.SPOTIFY_API == null) return;
         statusMessage = "Loading playlists...";
-        SpotiMCClient.SPOTIFY_API.getUserPlaylists().thenAccept(results -> {
+        SpotiMCClient.SPOTIFY_API.getUserPlaylists().thenAccept(result -> {
             Minecraft.getInstance().execute(() -> {
                 playlistResults.clear();
-                playlistResults.addAll(results);
-                statusMessage = results.isEmpty() ? "No playlists found" : "Loaded " + results.size() + " playlists";
+                playlistResults.addAll(result.items());
+                statusMessage = result.succeeded()
+                        ? (result.items().isEmpty() ? "No playlists found" : "Loaded " + result.items().size() + " playlists")
+                        : result.errorMessage();
                 rebuildTabWidgets();
             });
         });
@@ -285,11 +289,13 @@ public class SpotiMCSearchScreen extends Screen {
         statusMessage = "Loading tracks for " + playlist.name() + "...";
         rebuildTabWidgets();
 
-        SpotiMCClient.SPOTIFY_API.getPlaylistTracks(playlist.id()).thenAccept(results -> {
+        SpotiMCClient.SPOTIFY_API.getPlaylistTracks(playlist.id()).thenAccept(result -> {
             Minecraft.getInstance().execute(() -> {
                 playlistTrackResults.clear();
-                playlistTrackResults.addAll(results);
-                statusMessage = results.isEmpty() ? "No tracks found in playlist" : playlist.name() + " (" + results.size() + " tracks)";
+                playlistTrackResults.addAll(result.items());
+                statusMessage = result.succeeded()
+                        ? (result.items().isEmpty() ? "No tracks found in playlist" : playlist.name() + " (" + result.items().size() + " tracks)")
+                        : result.errorMessage();
                 rebuildTabWidgets();
             });
         });

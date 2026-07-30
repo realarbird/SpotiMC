@@ -8,6 +8,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
@@ -76,10 +77,13 @@ public class SpotiMCHud implements HudElement {
         }
 
         if (artId != null) {
-            gfx.blit(artId, 9, 9, 0, 0, 32, 32, 64, 64);
+            // Minecraft 26.2's Identifier-only overload expects rectangle coordinates, not
+            // texture dimensions. Use the explicit texture overload so the entire 64px
+            // dynamic texture is sampled into the 32px HUD cover.
+            gfx.blit(RenderPipelines.GUI_TEXTURED, artId, 9, 9, 0.0F, 0.0F, 32, 32, 64, 64, 0xFFFFFFFF);
         } else {
             // Draw default cover picture
-            gfx.blit(DEFAULT_COVER, 9, 9, 0, 0, 32, 32, 64, 64);
+            gfx.blit(RenderPipelines.GUI_TEXTURED, DEFAULT_COVER, 9, 9, 0.0F, 0.0F, 32, 32, 64, 64, 0xFFFFFFFF);
         }
 
         // Track name and artist — truncated with ... if longer than 120px

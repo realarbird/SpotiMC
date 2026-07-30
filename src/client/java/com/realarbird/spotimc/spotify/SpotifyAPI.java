@@ -34,6 +34,11 @@ public class SpotifyAPI {
 
     public record TrackSearchResult(String id, String name, String artistName, String uri) {}
     public record PlaylistSearchResult(String id, String name, int trackCount, String uri) {}
+    public record LibraryResult<T>(List<T> items, String errorMessage) {
+        public boolean succeeded() {
+            return errorMessage == null || errorMessage.isEmpty();
+        }
+    }
 
     public SpotifyAPI(SpotifyAuth auth) {
         this.auth = auth;
@@ -140,27 +145,17 @@ public class SpotifyAPI {
         sendRequestAsync(API_BASE + "/me/player/play", "PUT", jsonBody);
     }
 
-    public CompletableFuture<List<TrackSearchResult>> searchTracks(String query) {
+    public CompletableFuture<LibraryResult<TrackSearchResult>> searchTracks(String query) {
         if (query == null || query.trim().isEmpty()) {
-            return CompletableFuture.completedFuture(List.of());
-        }
-
-        String token = auth.getAccessToken();
-        if (token == null) {
-            return CompletableFuture.completedFuture(List.of());
+            return CompletableFuture.completedFuture(new LibraryResult<>(List.of(), "Enter a song title or artist."));
         }
 
         String encodedQuery = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8).replace("+", "%20");
-        String url = API_BASE + "/search?q=" + encodedQuery + "&type=track&limit=20";
+        // Spotify's current Search API accepts at most 10 results per type. Requests
+        // for 20 receive HTTP 400, which was previously shown as "No songs found".
+        String url = API_BASE + "/search?q=" + encodedQuery + "&type=track&limit=10";
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(5))
-                .header("Authorization", "Bearer " + token)
-                .GET()
-                .build();
-
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+        return getJsonWithRefresh(url)
                 .thenApply(response -> {
                     List<TrackSearchResult> results = new ArrayList<>();
                     if (response.statusCode() == 200 && response.body() != null) {
@@ -192,31 +187,17 @@ public class SpotifyAPI {
                         } catch (Exception e) {
                             LOGGER.error("Failed to parse track search response", e);
                         }
-                    } else if (response.statusCode() == 401) {
-                        LOGGER.warn("Spotify token unauthorized during track search, attempting refresh.");
-                        auth.refreshTokenAsync();
                     } else {
                         LOGGER.warn("Spotify track search failed: HTTP {} {}", response.statusCode(), response.body());
                     }
-                    return results;
-                });
+                    return new LibraryResult<>(results, response.statusCode() == 200 ? "" : libraryError("Search", response.statusCode()));
+                })
+                .exceptionally(error -> libraryRequestFailed("search", error));
     }
 
-    public CompletableFuture<List<PlaylistSearchResult>> getUserPlaylists() {
-        String token = auth.getAccessToken();
-        if (token == null) {
-            return CompletableFuture.completedFuture(List.of());
-        }
-
+    public CompletableFuture<LibraryResult<PlaylistSearchResult>> getUserPlaylists() {
         String url = API_BASE + "/me/playlists?limit=30";
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(5))
-                .header("Authorization", "Bearer " + token)
-                .GET()
-                .build();
-
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+        return getJsonWithRefresh(url)
                 .thenApply(response -> {
                     List<PlaylistSearchResult> results = new ArrayList<>();
                     if (response.statusCode() == 200 && response.body() != null) {
@@ -235,14 +216,10 @@ public class SpotifyAPI {
                                         id = uri.substring("spotify:playlist:".length());
                                     }
 
-                                    int trackCount = 0;
-                                    if (item.has("tracks") && item.get("tracks").isJsonObject()) {
-                                        JsonObject tracksObj = item.getAsJsonObject("tracks");
-                                        if (tracksObj.has("total") && !tracksObj.get("total").isJsonNull()) {
-                                            trackCount = tracksObj.get("total").getAsInt();
-                                        } else if (tracksObj.has("items") && tracksObj.get("items").isJsonArray()) {
-                                            trackCount = tracksObj.getAsJsonArray("items").size();
-                                        }
+                                    int trackCount = getPlaylistItemCount(item);
+
+                                    if (uri.isEmpty() && !id.isEmpty()) {
+                                        uri = "spotify:playlist:" + id;
                                     }
 
                                     results.add(new PlaylistSearchResult(id, name, trackCount, uri));
@@ -251,31 +228,23 @@ public class SpotifyAPI {
                         } catch (Exception e) {
                             LOGGER.error("Failed to parse user playlists response", e);
                         }
-                    } else if (response.statusCode() == 401) {
-                        LOGGER.warn("Spotify token unauthorized during playlists fetch, attempting refresh.");
-                        auth.refreshTokenAsync();
                     } else {
                         LOGGER.warn("Spotify playlists fetch failed: HTTP {} {}", response.statusCode(), response.body());
                     }
-                    return results;
-                });
+                    return new LibraryResult<>(results, response.statusCode() == 200 ? "" : libraryError("Playlist load", response.statusCode()));
+                })
+                .exceptionally(error -> libraryRequestFailed("playlist load", error));
     }
 
-    public CompletableFuture<List<TrackSearchResult>> getPlaylistTracks(String playlistId) {
-        String token = auth.getAccessToken();
-        if (token == null || playlistId == null || playlistId.isEmpty()) {
-            return CompletableFuture.completedFuture(List.of());
+    public CompletableFuture<LibraryResult<TrackSearchResult>> getPlaylistTracks(String playlistId) {
+        if (playlistId == null || playlistId.isEmpty()) {
+            return CompletableFuture.completedFuture(new LibraryResult<>(List.of(), "This playlist does not have a Spotify ID."));
         }
 
-        String url = API_BASE + "/playlists/" + playlistId + "/tracks?limit=50";
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(5))
-                .header("Authorization", "Bearer " + token)
-                .GET()
-                .build();
-
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+        // /tracks is deprecated. The current endpoint returns wrappers with an `item`
+        // object, which the parser below handles alongside legacy `track` wrappers.
+        String url = API_BASE + "/playlists/" + URLEncoder.encode(playlistId, StandardCharsets.UTF_8) + "/items?limit=50";
+        return getJsonWithRefresh(url)
                 .thenApply(response -> {
                     List<TrackSearchResult> results = new ArrayList<>();
                     if (response.statusCode() == 200 && response.body() != null) {
@@ -321,14 +290,78 @@ public class SpotifyAPI {
                         } catch (Exception e) {
                             LOGGER.error("Failed to parse playlist tracks response", e);
                         }
-                    } else if (response.statusCode() == 401) {
-                        LOGGER.warn("Spotify token unauthorized during playlist tracks fetch, attempting refresh.");
-                        auth.refreshTokenAsync();
                     } else {
                         LOGGER.warn("Spotify playlist tracks fetch failed for playlist {}: HTTP {} {}", playlistId, response.statusCode(), response.body());
                     }
-                    return results;
+                    return new LibraryResult<>(results, response.statusCode() == 200 ? "" : libraryError("Playlist track load", response.statusCode()));
+                })
+                .exceptionally(error -> libraryRequestFailed("playlist track load", error));
+    }
+
+    private int getPlaylistItemCount(JsonObject playlist) {
+        // Spotify migrated playlist summaries from `tracks` to `items`. Prefer the
+        // current field and retain the legacy fallback for older responses.
+        for (String key : List.of("items", "tracks")) {
+            if (!playlist.has(key) || !playlist.get(key).isJsonObject()) continue;
+            JsonObject items = playlist.getAsJsonObject(key);
+            if (items.has("total") && !items.get("total").isJsonNull()) {
+                return items.get("total").getAsInt();
+            }
+            if (items.has("items") && items.get("items").isJsonArray()) {
+                return items.getAsJsonArray("items").size();
+            }
+        }
+        return 0;
+    }
+
+    private CompletableFuture<HttpResponse<String>> getJsonWithRefresh(String url) {
+        return getJsonWithRefresh(url, false);
+    }
+
+    /**
+     * Performs a read request and retries it exactly once after a successful token
+     * refresh. This keeps a transient expired access token from becoming an empty UI.
+     */
+    private CompletableFuture<HttpResponse<String>> getJsonWithRefresh(String url, boolean retriedAfterRefresh) {
+        String token = auth.getAccessToken();
+        if (token == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Spotify is not connected"));
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + token)
+                .GET()
+                .build();
+
+        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenCompose(response -> {
+                    if (response.statusCode() != 401 || retriedAfterRefresh) {
+                        return CompletableFuture.completedFuture(response);
+                    }
+                    LOGGER.warn("Spotify token unauthorized for {}, refreshing and retrying once.", url);
+                    return auth.refreshTokenAsync().thenCompose(refreshed -> {
+                        if (!refreshed) {
+                            return CompletableFuture.completedFuture(response);
+                        }
+                        return getJsonWithRefresh(url, true);
+                    });
                 });
+    }
+
+    private static String libraryError(String operation, int statusCode) {
+        return switch (statusCode) {
+            case 401 -> "Spotify session expired. Reconnect Spotify and try again.";
+            case 403 -> "Spotify denied access to this library item.";
+            case 429 -> "Spotify is rate-limiting requests. Please wait a moment.";
+            default -> operation + " failed (Spotify HTTP " + statusCode + ").";
+        };
+    }
+
+    private static <T> LibraryResult<T> libraryRequestFailed(String operation, Throwable error) {
+        LOGGER.warn("Spotify {} request failed", operation, error);
+        return new LibraryResult<>(List.of(), "Could not " + operation + ". Check your Spotify connection and try again.");
     }
 
     private void sendRequestAsync(String url, String method, String jsonBody) {

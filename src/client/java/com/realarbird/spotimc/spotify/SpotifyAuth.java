@@ -41,7 +41,7 @@ public class SpotifyAuth {
     private String accessToken;
     private String refreshToken;
     private long expiresAt;
-    private boolean isRefreshing = false;
+    private CompletableFuture<Boolean> refreshInFlight;
 
     private Runnable onAuthenticated;
     private HttpServer authServer;
@@ -214,10 +214,10 @@ public class SpotifyAuth {
     private void exchangeToken(String code) {
         String clientId = getClientId();
         String body = "grant_type=authorization_code" +
-                "&client_id=" + clientId +
-                "&code=" + code +
+                "&client_id=" + URLEncoder.encode(clientId, StandardCharsets.UTF_8) +
+                "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8) +
                 "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI, StandardCharsets.UTF_8) +
-                "&code_verifier=" + codeVerifier;
+                "&code_verifier=" + URLEncoder.encode(codeVerifier, StandardCharsets.UTF_8);
 
         String clientSecret = getClientSecret();
         if (!clientSecret.isEmpty()) {
@@ -227,35 +227,41 @@ public class SpotifyAuth {
         sendTokenRequest(body);
     }
 
-    public synchronized void refreshTokenAsync() {
-        if (refreshToken == null || refreshToken.isEmpty() || isRefreshing) {
-            return;
+    /**
+     * Refreshes the access token once for all concurrent callers.
+     *
+     * @return a future that is {@code true} only when a new usable token was stored
+     */
+    public synchronized CompletableFuture<Boolean> refreshTokenAsync() {
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            return CompletableFuture.completedFuture(false);
+        }
+        if (refreshInFlight != null) {
+            return refreshInFlight;
         }
 
-        isRefreshing = true;
-        CompletableFuture.runAsync(() -> {
-            try {
-                String clientId = getClientId();
-                StringBuilder sb = new StringBuilder();
-                sb.append("grant_type=refresh_token")
-                  .append("&client_id=").append(clientId)
-                  .append("&refresh_token=").append(refreshToken);
+        String refreshTokenValue = refreshToken;
+        String clientId = getClientId();
+        StringBuilder body = new StringBuilder();
+        body.append("grant_type=refresh_token")
+                .append("&client_id=").append(URLEncoder.encode(clientId, StandardCharsets.UTF_8))
+                .append("&refresh_token=").append(URLEncoder.encode(refreshTokenValue, StandardCharsets.UTF_8));
 
-                String clientSecret = getClientSecret();
-                if (!clientSecret.isEmpty()) {
-                    sb.append("&client_secret=").append(URLEncoder.encode(clientSecret, StandardCharsets.UTF_8));
-                }
+        String clientSecret = getClientSecret();
+        if (!clientSecret.isEmpty()) {
+            body.append("&client_secret=").append(URLEncoder.encode(clientSecret, StandardCharsets.UTF_8));
+        }
 
-                sendTokenRequest(sb.toString());
-            } finally {
-                synchronized (this) {
-                    isRefreshing = false;
-                }
-            }
-        });
+        refreshInFlight = CompletableFuture.supplyAsync(() -> sendTokenRequest(body.toString()))
+                .whenComplete((refreshed, error) -> {
+                    synchronized (SpotifyAuth.this) {
+                        refreshInFlight = null;
+                    }
+                });
+        return refreshInFlight;
     }
 
-    private void sendTokenRequest(String body) {
+    private boolean sendTokenRequest(String body) {
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create("https://accounts.spotify.com/api/token"))
                 .timeout(Duration.ofSeconds(5))
@@ -288,12 +294,14 @@ public class SpotifyAuth {
                 if (onAuthenticated != null) {
                     onAuthenticated.run();
                 }
+                return true;
             } else {
                 LOGGER.error("Failed to get tokens: {} {}", response.statusCode(), response.body());
             }
         } catch (Exception e) {
             LOGGER.error("Exception during token request", e);
         }
+        return false;
     }
 
     public synchronized String getAccessToken() {
