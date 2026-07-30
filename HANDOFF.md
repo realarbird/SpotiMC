@@ -11,15 +11,14 @@
 #### 1. Basic Mode (Last.fm) & Advanced Mode (Spotify) Dual Engine
 - **Mode Switch**: Added `Mode` enum (`BASIC`, `ADVANCED`) in `SpotiMCConfig.java`.
 - **Mode Labels**: Config UI clearly displays `Mode: ADVANCED (Requires Spotify Premium)` when Advanced Mode is selected and `Mode: BASIC (Free)` when Basic Mode is selected.
-- **Interactive API Key Buttons**:
-  - Advanced Mode: `Get API Keys (Open Spotify Dashboard)` button launches `https://developer.spotify.com/dashboard` directly in the user's web browser.
-  - Basic Mode: `Get Last.fm API Key (Free)` button launches `https://www.last.fm/api/account/create` directly in the user's web browser.
+- **Dedicated Setup Guide Menu (`SpotiMCSetupGuideScreen.java`)**:
+  - `How to Get API Keys (Setup Guide)...` button opens a clean sub-screen menu displaying step-by-step setup instructions and a direct browser launcher button for Spotify (`https://developer.spotify.com/dashboard`) or Last.fm (`https://www.last.fm/api/account/create`).
 
 #### Step-by-Step Setup Instructions
 
 ##### Advanced Mode (Requires Spotify Premium)
 1. Open SpotiMC settings (Default key: `;`) and select **`Mode: ADVANCED (Requires Spotify Premium)`**.
-2. Click **`Get API Keys (Open Spotify Dashboard)`** or visit [https://developer.spotify.com/dashboard](https://developer.spotify.com/dashboard).
+2. Click **`How to Get API Keys (Setup Guide)...`** and click **`Open Spotify Developer Dashboard`** (or visit [https://developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)).
 3. Log in with your Spotify account and click **Create App**.
 4. Enter any App Name and App Description (e.g. `My SpotiMC App`).
 5. Set Redirect URI to exactly: `http://127.0.0.1:4381/callback`
@@ -29,7 +28,7 @@
 
 ##### Basic Mode (Free - Read-Only Song Display)
 1. Open SpotiMC settings (Default key: `;`) and select **`Mode: BASIC (Free)`**.
-2. Click **`Get Last.fm API Key (Free)`** or visit [https://www.last.fm/api/account/create](https://www.last.fm/api/account/create).
+2. Click **`How to Get API Keys (Setup Guide)...`** and click **`Open Last.fm API Key Page`** (or visit [https://www.last.fm/api/account/create](https://www.last.fm/api/account/create)).
 3. Log in to Last.fm and fill in any **Application Name** & **Application Description** (e.g. `My SpotiMC App`).
 4. Set **Callback URL** to: `http://127.0.0.1:4381/callback`.
 5. Leave the **Application homepage** section blank.
@@ -52,7 +51,7 @@
 - **Basic Mode Overlay Notice**: Attempting to use playback controls (Play/Pause, Next, Previous, Search) in Basic Mode triggers an action bar message: `"Playback controls require Advanced Mode (Spotify Premium)"`.
 
 #### 5. GUI Redesign & Mod Icon Update
-- **Config GUI (`SpotiMCConfigScreen.java`)**: Added mode toggle button, web browser launch buttons for API keys, step-by-step instructions, text boxes for credentials, and keybind settings button.
+- **Config GUI (`SpotiMCConfigScreen.java` & `SpotiMCSetupGuideScreen.java`)**: Added mode toggle button, setup guide sub-screen menu, web browser launch buttons, text boxes for credentials, and keybind settings button.
 - **Mod Icon**: Updated `src/main/resources/assets/spotimc/icon.png` using `/Users/ayanraj/Documents/SpotiMC/SpotiMC.png`.
 
 #### 6. Anti-Freeze Protection & Non-Blocking Async Network Calls
