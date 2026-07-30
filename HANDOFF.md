@@ -9,7 +9,7 @@
 - **Target Environment**: Minecraft 26.2 (Fabric Loader 0.19.3, Fabric API 0.155.2+26.2, Java 25).
 - **Dual-Engine Playback**:
   - **Advanced Mode**: Requires Spotify Premium. Integrates Spotify Web API with OAuth2 PKCE (`http://127.0.0.1:4381/callback`), playback controls (Play/Pause, Skip, Previous, Search, Playlist Browsing, Shuffle 🔀, Repeat 🔁).
-  - **Basic Mode**: Uses Last.fm REST API (`user.getrecenttracks`). Free to use, read-only track display (no playback controls).
+  - **Basic Mode**: Uses Last.fm REST APIs (`user.getrecenttracks` plus a cached `track.getInfo` artwork fallback). Free to use, read-only track display (no playback controls).
 - **Social Overhead Track Display**:
   - Broadcasts song updates via Fabric C2S/S2C custom network payloads (`spotimc:song_update`).
   - Injects into player rendering (`EntityRendererMixin`) to render the player name and a separate green `♫ Track Name — Artist Name` line underneath it in 3D world space.
@@ -45,6 +45,12 @@
 ---
 
 ## Chronological Session Logs
+
+### Session 8 — 2026-07-30 (Basic Mode Actual Album Art Lookup)
+- **Actual Album Cover Fix**:
+  - *Root Cause*: Last.fm’s `user.getrecenttracks` response frequently omits album image URLs. `PlaybackState` therefore had an empty artwork URL and the HUD correctly—but unhelpfully—displayed `default_cover.png` for every song.
+  - *Fix*: `LastFmAPI` now chooses the largest usable image from the recent-track response, rejects Last.fm’s known “no image available” placeholder, and falls back once per artist/album/track to `track.getInfo`. The fallback URL is cached, so a song's real cover is fetched once and then supplied to the existing dynamic-texture loader on every later poll.
+  - *Verification*: Confirmed Last.fm's `track.getInfo` response for **Mwaki — Zerb** includes the Surrender EP cover URL. The client build also passes with the Session 7 Java 25 build command.
 
 ### Session 7 — 2026-07-30 (Minecraft 26.2 HUD Fix, Current Spotify Library API & Reliable Social Tags)
 - **HUD Album Cover Rendering Fix**:
