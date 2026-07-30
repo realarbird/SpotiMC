@@ -1,5 +1,6 @@
 package com.realarbird.spotimc.social;
 
+import com.realarbird.spotimc.SpotiMCConfig;
 import com.realarbird.spotimc.network.SpotiMCSongPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -57,6 +58,7 @@ public class ClientSongTracker {
 
     /**
      * Periodically sends local player's song update packet to server/peers.
+     * Respects user privacy settings (shareMyListeningStats).
      */
     public static void tickBroadcast(String trackName, String artistName, boolean isPlaying) {
         long now = System.currentTimeMillis();
@@ -71,12 +73,15 @@ public class ClientSongTracker {
         UUID localUuid = mc.player.getUUID();
         String localName = mc.player.getName().getString();
 
+        SpotiMCConfig config = SpotiMCConfig.getInstance();
+        boolean share = config.shareMyListeningStats;
+
         SpotiMCSongPayload payload = new SpotiMCSongPayload(
                 localUuid,
                 localName,
-                trackName != null ? trackName : "",
-                artistName != null ? artistName : "",
-                isPlaying
+                share && trackName != null ? trackName : "",
+                share && artistName != null ? artistName : "",
+                share && isPlaying
         );
 
         // Update locally for singleplayer/local view

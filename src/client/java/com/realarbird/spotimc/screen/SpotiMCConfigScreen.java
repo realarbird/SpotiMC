@@ -13,7 +13,7 @@ import net.minecraft.network.chat.Component;
 /**
  * In-game configuration screen for SpotiMC.
  * Supports mode switching (Basic vs Advanced), custom Spotify/Last.fm API credential setup,
- * setup guide navigation, HUD customization, and keybind configuration.
+ * setup guide navigation, HUD customization, keybind configuration, and social privacy controls.
  */
 public class SpotiMCConfigScreen extends Screen {
 
@@ -38,7 +38,7 @@ public class SpotiMCConfigScreen extends Screen {
     @Override
     protected void init() {
         int center = this.width / 2;
-        int y = 30;
+        int y = 25;
 
         // 1. Mode Switcher Button with clear mode indicators
         String modeLabel = config.isAdvancedMode()
@@ -55,7 +55,7 @@ public class SpotiMCConfigScreen extends Screen {
                 }
         ).bounds(center - 120, y, 240, 20).build());
 
-        y += 24;
+        y += 22;
 
         // 2. Setup Guide Button that opens the sub-screen with step-by-step instructions and web link
         this.addRenderableWidget(Button.builder(
@@ -68,7 +68,7 @@ public class SpotiMCConfigScreen extends Screen {
                 }
         ).bounds(center - 120, y, 240, 20).build());
 
-        y += 28;
+        y += 24;
 
         if (config.isAdvancedMode()) {
             // Advanced Mode Inputs (Spotify)
@@ -78,7 +78,7 @@ public class SpotiMCConfigScreen extends Screen {
             clientIdBox.setValue(config.clientId != null ? config.clientId : "");
             this.addRenderableWidget(clientIdBox);
 
-            y += 22;
+            y += 20;
 
             clientSecretBox = new EditBox(this.font, center - 100, y, 200, 18, Component.literal("Client Secret"));
             clientSecretBox.setHint(Component.literal("Client Secret"));
@@ -86,7 +86,7 @@ public class SpotiMCConfigScreen extends Screen {
             clientSecretBox.setValue(config.clientSecret != null ? config.clientSecret : "");
             this.addRenderableWidget(clientSecretBox);
 
-            y += 22;
+            y += 20;
 
             boolean authed = SpotiMCClient.SPOTIFY_AUTH != null && SpotiMCClient.SPOTIFY_AUTH.isAuthenticated();
             Component connectText = authed ? Component.literal("Reconnect to Spotify") : Component.literal("Connect to Spotify");
@@ -99,9 +99,9 @@ public class SpotiMCConfigScreen extends Screen {
                             this.minecraft.setScreenAndShow(null);
                         }
                     }
-            ).bounds(center - 100, y, 200, 20).build());
+            ).bounds(center - 100, y, 200, 18).build());
 
-            y += 24;
+            y += 22;
 
         } else {
             // Basic Mode Inputs (Last.fm)
@@ -111,7 +111,7 @@ public class SpotiMCConfigScreen extends Screen {
             lastFmApiKeyBox.setValue(config.lastFmApiKey != null ? config.lastFmApiKey : "");
             this.addRenderableWidget(lastFmApiKeyBox);
 
-            y += 22;
+            y += 20;
 
             lastFmUsernameBox = new EditBox(this.font, center - 100, y, 200, 18, Component.literal("Last.fm Username"));
             lastFmUsernameBox.setHint(Component.literal("Last.fm Username"));
@@ -119,7 +119,7 @@ public class SpotiMCConfigScreen extends Screen {
             lastFmUsernameBox.setValue(config.lastFmUsername != null ? config.lastFmUsername : "");
             this.addRenderableWidget(lastFmUsernameBox);
 
-            y += 22;
+            y += 20;
 
             this.addRenderableWidget(Button.builder(
                     Component.literal("Save & Connect Last.fm"),
@@ -127,20 +127,20 @@ public class SpotiMCConfigScreen extends Screen {
                         saveInputFields();
                         SpotiMCClient.updateActiveMode();
                     }
-            ).bounds(center - 100, y, 200, 20).build());
+            ).bounds(center - 100, y, 200, 18).build());
 
-            y += 24;
+            y += 22;
         }
 
         // Common HUD & Keybind Controls
         this.addRenderableWidget(Button.builder(
-                Component.literal("HUD Visible: " + (config.hudVisible ? "ON" : "OFF")),
+                Component.literal("HUD: " + (config.hudVisible ? "ON" : "OFF")),
                 button -> {
                     config.hudVisible = !config.hudVisible;
-                    button.setMessage(Component.literal("HUD Visible: " + (config.hudVisible ? "ON" : "OFF")));
+                    button.setMessage(Component.literal("HUD: " + (config.hudVisible ? "ON" : "OFF")));
                     SpotiMCConfig.save();
                 }
-        ).bounds(center - 100, y, 98, 20).build());
+        ).bounds(center - 100, y, 98, 18).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.literal("Scale: " + config.hudScale + "x"),
@@ -154,30 +154,43 @@ public class SpotiMCConfigScreen extends Screen {
                     button.setMessage(Component.literal("Scale: " + config.hudScale + "x"));
                     SpotiMCConfig.save();
                 }
-        ).bounds(center + 2, y, 98, 20).build());
+        ).bounds(center + 2, y, 98, 18).build());
 
-        y += 22;
+        y += 20;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Configure Keybinds..."),
+                Component.literal("Keybinds..."),
                 button -> {
                     saveInputFields();
                     if (this.minecraft != null) {
                         this.minecraft.setScreenAndShow(new KeyBindsScreen(this, this.minecraft.options));
                     }
                 }
-        ).bounds(center - 100, y, 98, 20).build());
+        ).bounds(center - 100, y, 98, 18).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("Reset HUD Pos"),
+                Component.literal("Reset HUD"),
                 button -> config.resetHudPosition()
-        ).bounds(center + 2, y, 98, 20).build());
+        ).bounds(center + 2, y, 98, 18).build());
+
+        y += 20;
+
+        // Social Features Settings Button
+        this.addRenderableWidget(Button.builder(
+                Component.literal("Social Features..."),
+                button -> {
+                    saveInputFields();
+                    if (this.minecraft != null) {
+                        this.minecraft.setScreenAndShow(new SpotiMCSocialConfigScreen(this));
+                    }
+                }
+        ).bounds(center - 100, y, 200, 18).build());
 
         // Done button
         this.addRenderableWidget(Button.builder(
                 Component.literal("Done"),
                 button -> this.onClose()
-        ).bounds(center - 100, this.height - 25, 200, 20).build());
+        ).bounds(center - 100, this.height - 24, 200, 20).build());
     }
 
     private void saveInputFields() {
@@ -195,7 +208,7 @@ public class SpotiMCConfigScreen extends Screen {
         int center = this.width / 2;
 
         // Title (Opaque White)
-        gfx.centeredText(this.font, this.title, center, 10, 0xFFFFFFFF);
+        gfx.centeredText(this.font, this.title, center, 8, 0xFFFFFFFF);
 
         // HUD Preview for dragging
         if (config.hudVisible) {

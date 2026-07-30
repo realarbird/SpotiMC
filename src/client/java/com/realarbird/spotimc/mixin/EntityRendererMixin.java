@@ -1,5 +1,6 @@
 package com.realarbird.spotimc.mixin;
 
+import com.realarbird.spotimc.SpotiMCConfig;
 import com.realarbird.spotimc.social.ClientSongTracker;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
@@ -19,6 +20,11 @@ public abstract class EntityRendererMixin {
             at = @At("TAIL")
     )
     private void spotimc$renderPlayerSongOverhead(Entity entity, EntityRenderState state, float partialTick, CallbackInfo ci) {
+        SpotiMCConfig config = SpotiMCConfig.getInstance();
+        if (!config.showOthersListeningStats) {
+            return;
+        }
+
         if (entity instanceof Player player) {
             ClientSongTracker.PlayerSongInfo songInfo = ClientSongTracker.getSong(player.getUUID());
             if (songInfo != null && songInfo.isPlaying() && songInfo.trackName() != null && !songInfo.trackName().isEmpty()) {

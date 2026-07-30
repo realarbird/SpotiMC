@@ -12,7 +12,7 @@ import java.nio.file.Path;
 /**
  * Configuration manager for SpotiMC.
  * Stores HUD position/scale/visibility, operational mode (Basic vs Advanced),
- * Spotify OAuth credentials & tokens, and Last.fm API settings.
+ * Spotify OAuth credentials & tokens, Last.fm API settings, and Social Features.
  * Persisted as JSON to .minecraft/config/spotimc.json.
  */
 public class SpotiMCConfig {
@@ -36,6 +36,10 @@ public class SpotiMCConfig {
     public int hudY = 10;
     public float hudScale = 1.0f;
     public boolean hudVisible = true;
+
+    // --- Social Features ---
+    public boolean showOthersListeningStats = true;
+    public boolean shareMyListeningStats = true;
 
     // --- Spotify Credentials & Tokens (Advanced Mode) ---
     public String clientId = "";

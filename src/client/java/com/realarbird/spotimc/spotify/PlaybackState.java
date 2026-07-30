@@ -11,11 +11,17 @@ public record PlaybackState(
         String albumArtUrl,
         boolean isPlaying,
         long progressMs,
-        long durationMs
+        long durationMs,
+        boolean shuffleState,
+        String repeatState // "off", "track", "context"
 ) {
     public static final PlaybackState EMPTY = new PlaybackState(
-            "", "", "", "", false, 0, 0
+            "", "", "", "", false, 0, 0, false, "off"
     );
+
+    public PlaybackState(String trackName, String artistName, String albumName, String albumArtUrl, boolean isPlaying, long progressMs, long durationMs) {
+        this(trackName, artistName, albumName, albumArtUrl, isPlaying, progressMs, durationMs, false, "off");
+    }
 
     public static PlaybackState fromJson(JsonObject json) {
         if (json == null || !json.has("item") || json.get("item").isJsonNull()) {
@@ -23,8 +29,11 @@ public record PlaybackState(
         }
 
         try {
-            boolean isPlaying = json.has("is_playing") && json.get("is_playing").getAsBoolean();
+            boolean isPlaying = json.has("is_playing") && !json.get("is_playing").isJsonNull() && json.get("is_playing").getAsBoolean();
             long progressMs = json.has("progress_ms") && !json.get("progress_ms").isJsonNull() ? json.get("progress_ms").getAsLong() : 0;
+
+            boolean shuffleState = json.has("shuffle_state") && !json.get("shuffle_state").isJsonNull() && json.get("shuffle_state").getAsBoolean();
+            String repeatState = json.has("repeat_state") && !json.get("repeat_state").isJsonNull() ? json.get("repeat_state").getAsString() : "off";
 
             JsonObject item = json.getAsJsonObject("item");
             String trackName = item.has("name") && !item.get("name").isJsonNull() ? item.get("name").getAsString() : "";
@@ -52,7 +61,7 @@ public record PlaybackState(
                 if (album.has("images") && album.get("images").isJsonArray()) {
                     JsonArray images = album.getAsJsonArray("images");
                     if (!images.isEmpty()) {
-                        // Pick the primary album cover image
+                        // Pick primary album cover image
                         JsonObject mainImage = images.get(0).getAsJsonObject();
                         if (mainImage.has("url") && !mainImage.get("url").isJsonNull()) {
                             albumArtUrl = mainImage.get("url").getAsString();
@@ -61,7 +70,7 @@ public record PlaybackState(
                 }
             }
 
-            return new PlaybackState(trackName, artistName, albumName, albumArtUrl, isPlaying, progressMs, durationMs);
+            return new PlaybackState(trackName, artistName, albumName, albumArtUrl, isPlaying, progressMs, durationMs, shuffleState, repeatState);
         } catch (Exception e) {
             return EMPTY;
         }

@@ -116,6 +116,15 @@ public class SpotifyAPI {
         sendRequestAsync(API_BASE + endpoint, "PUT", null);
     }
 
+    public void setShuffle(boolean enable) {
+        sendRequestAsync(API_BASE + "/me/player/shuffle?state=" + enable, "PUT", null);
+    }
+
+    public void setRepeat(String state) {
+        // state can be "off", "context", "track"
+        sendRequestAsync(API_BASE + "/me/player/repeat?state=" + state, "PUT", null);
+    }
+
     public void playTrackUri(String trackUri) {
         String jsonBody = "{\"uris\":[\"" + trackUri + "\"]}";
         sendRequestAsync(API_BASE + "/me/player/play", "PUT", jsonBody);
@@ -123,6 +132,11 @@ public class SpotifyAPI {
 
     public void playContextUri(String contextUri) {
         String jsonBody = "{\"context_uri\":\"" + contextUri + "\"}";
+        sendRequestAsync(API_BASE + "/me/player/play", "PUT", jsonBody);
+    }
+
+    public void playTrackInContext(String contextUri, String trackUri) {
+        String jsonBody = "{\"context_uri\":\"" + contextUri + "\",\"offset\":{\"uri\":\"" + trackUri + "\"}}";
         sendRequestAsync(API_BASE + "/me/player/play", "PUT", jsonBody);
     }
 
@@ -137,7 +151,7 @@ public class SpotifyAPI {
         }
 
         String encodedQuery = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
-        String url = API_BASE + "/search?q=" + encodedQuery + "&type=track&limit=12";
+        String url = API_BASE + "/search?q=" + encodedQuery + "&type=track&limit=20";
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -156,13 +170,19 @@ public class SpotifyAPI {
                                 JsonArray items = json.getAsJsonObject("tracks").getAsJsonArray("items");
                                 for (JsonElement elem : items) {
                                     JsonObject item = elem.getAsJsonObject();
-                                    String id = item.has("id") ? item.get("id").getAsString() : "";
-                                    String name = item.has("name") ? item.get("name").getAsString() : "Unknown Track";
-                                    String uri = item.has("uri") ? item.get("uri").getAsString() : "";
+                                    String id = item.has("id") && !item.get("id").isJsonNull() ? item.get("id").getAsString() : "";
+                                    String name = item.has("name") && !item.get("name").isJsonNull() ? item.get("name").getAsString() : "Unknown Track";
+                                    String uri = item.has("uri") && !item.get("uri").isJsonNull() ? item.get("uri").getAsString() : "";
 
                                     String artist = "";
-                                    if (item.has("artists") && item.getAsJsonArray("artists").size() > 0) {
-                                        artist = item.getAsJsonArray("artists").get(0).getAsJsonObject().get("name").getAsString();
+                                    if (item.has("artists") && item.get("artists").isJsonArray()) {
+                                        JsonArray artists = item.getAsJsonArray("artists");
+                                        if (!artists.isEmpty() && artists.get(0).isJsonObject()) {
+                                            JsonObject artistObj = artists.get(0).getAsJsonObject();
+                                            if (artistObj.has("name") && !artistObj.get("name").isJsonNull()) {
+                                                artist = artistObj.get("name").getAsString();
+                                            }
+                                        }
                                     }
 
                                     results.add(new TrackSearchResult(id, name, artist, uri));
@@ -182,7 +202,7 @@ public class SpotifyAPI {
             return CompletableFuture.completedFuture(List.of());
         }
 
-        String url = API_BASE + "/me/playlists?limit=20";
+        String url = API_BASE + "/me/playlists?limit=30";
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .timeout(Duration.ofSeconds(5))
@@ -200,13 +220,18 @@ public class SpotifyAPI {
                                 JsonArray items = json.getAsJsonArray("items");
                                 for (JsonElement elem : items) {
                                     JsonObject item = elem.getAsJsonObject();
-                                    String id = item.has("id") ? item.get("id").getAsString() : "";
-                                    String name = item.has("name") ? item.get("name").getAsString() : "Untitled Playlist";
-                                    String uri = item.has("uri") ? item.get("uri").getAsString() : "";
+                                    String id = item.has("id") && !item.get("id").isJsonNull() ? item.get("id").getAsString() : "";
+                                    String name = item.has("name") && !item.get("name").isJsonNull() ? item.get("name").getAsString() : "Untitled Playlist";
+                                    String uri = item.has("uri") && !item.get("uri").isJsonNull() ? item.get("uri").getAsString() : "";
 
                                     int trackCount = 0;
-                                    if (item.has("tracks") && item.getAsJsonObject("tracks").has("total")) {
-                                        trackCount = item.getAsJsonObject("tracks").get("total").getAsInt();
+                                    if (item.has("tracks") && item.get("tracks").isJsonObject()) {
+                                        JsonObject tracksObj = item.getAsJsonObject("tracks");
+                                        if (tracksObj.has("total") && !tracksObj.get("total").isJsonNull()) {
+                                            trackCount = tracksObj.get("total").getAsInt();
+                                        } else if (tracksObj.has("items") && tracksObj.get("items").isJsonArray()) {
+                                            trackCount = tracksObj.getAsJsonArray("items").size();
+                                        }
                                     }
 
                                     results.add(new PlaylistSearchResult(id, name, trackCount, uri));
@@ -214,6 +239,59 @@ public class SpotifyAPI {
                             }
                         } catch (Exception e) {
                             LOGGER.error("Failed to parse user playlists response", e);
+                        }
+                    }
+                    return results;
+                });
+    }
+
+    public CompletableFuture<List<TrackSearchResult>> getPlaylistTracks(String playlistId) {
+        String token = auth.getAccessToken();
+        if (token == null || playlistId == null || playlistId.isEmpty()) {
+            return CompletableFuture.completedFuture(List.of());
+        }
+
+        String url = API_BASE + "/playlists/" + playlistId + "/tracks?limit=50";
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + token)
+                .GET()
+                .build();
+
+        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenApply(response -> {
+                    List<TrackSearchResult> results = new ArrayList<>();
+                    if (response.statusCode() == 200 && response.body() != null) {
+                        try {
+                            JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
+                            if (json.has("items") && json.get("items").isJsonArray()) {
+                                JsonArray items = json.getAsJsonArray("items");
+                                for (JsonElement elem : items) {
+                                    JsonObject wrapper = elem.getAsJsonObject();
+                                    if (wrapper.has("track") && wrapper.get("track").isJsonObject()) {
+                                        JsonObject trackObj = wrapper.getAsJsonObject("track");
+                                        String id = trackObj.has("id") && !trackObj.get("id").isJsonNull() ? trackObj.get("id").getAsString() : "";
+                                        String name = trackObj.has("name") && !trackObj.get("name").isJsonNull() ? trackObj.get("name").getAsString() : "Unknown Track";
+                                        String uri = trackObj.has("uri") && !trackObj.get("uri").isJsonNull() ? trackObj.get("uri").getAsString() : "";
+
+                                        String artist = "";
+                                        if (trackObj.has("artists") && trackObj.get("artists").isJsonArray()) {
+                                            JsonArray artists = trackObj.getAsJsonArray("artists");
+                                            if (!artists.isEmpty() && artists.get(0).isJsonObject()) {
+                                                JsonObject artistObj = artists.get(0).getAsJsonObject();
+                                                if (artistObj.has("name") && !artistObj.get("name").isJsonNull()) {
+                                                    artist = artistObj.get("name").getAsString();
+                                                }
+                                            }
+                                        }
+
+                                        results.add(new TrackSearchResult(id, name, artist, uri));
+                                    }
+                                }
+                            }
+                        } catch (Exception e) {
+                            LOGGER.error("Failed to parse playlist tracks response", e);
                         }
                     }
                     return results;
