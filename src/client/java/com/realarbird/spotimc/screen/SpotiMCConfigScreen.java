@@ -17,7 +17,7 @@ import java.net.URI;
 /**
  * In-game configuration screen for SpotiMC.
  * Supports mode switching (Basic vs Advanced), custom Spotify/Last.fm API credential setup,
- * interactive API key acquisition buttons, HUD customization, and keybind navigation.
+ * step-by-step user setup instructions, interactive API key acquisition buttons, HUD customization, and keybind navigation.
  */
 public class SpotiMCConfigScreen extends Screen {
 
@@ -42,7 +42,7 @@ public class SpotiMCConfigScreen extends Screen {
     @Override
     protected void init() {
         int center = this.width / 2;
-        int y = 25;
+        int y = 22;
 
         // 1. Mode Switcher Button with clear mode indicators
         String modeLabel = config.isAdvancedMode()
@@ -68,7 +68,7 @@ public class SpotiMCConfigScreen extends Screen {
                     button -> openUrl("https://developer.spotify.com/dashboard")
             ).bounds(center - 120, y, 240, 20).build());
 
-            y += 42; // Space for instructions below button
+            y += 52; // Space for multi-line step-by-step instructions below button
 
             clientIdBox = new EditBox(this.font, center - 100, y, 200, 18, Component.literal("Client ID"));
             clientIdBox.setHint(Component.literal("Client ID"));
@@ -108,7 +108,7 @@ public class SpotiMCConfigScreen extends Screen {
                     button -> openUrl("https://www.last.fm/api/account/create")
             ).bounds(center - 120, y, 240, 20).build());
 
-            y += 34; // Space for instructions below button
+            y += 42; // Space for instructions below button
 
             lastFmApiKeyBox = new EditBox(this.font, center - 100, y, 200, 18, Component.literal("Last.fm API Key"));
             lastFmApiKeyBox.setHint(Component.literal("Last.fm API Key"));
@@ -219,18 +219,19 @@ public class SpotiMCConfigScreen extends Screen {
         int center = this.width / 2;
 
         // Title
-        gfx.centeredText(this.font, this.title, center, 10, 0xFFFFFF);
+        gfx.centeredText(this.font, this.title, center, 8, 0xFFFFFF);
 
         if (config.isAdvancedMode()) {
-            // Instructions for Spotify Advanced Mode
-            int instY = 72;
-            gfx.centeredText(this.font, Component.literal("1. Create App -> Redirect URI: http://127.0.0.1:4381/callback"), center, instY, 0xFFD700);
-            gfx.centeredText(this.font, Component.literal("2. Checkmark \"Web API\" -> Paste Client ID & Secret below:"), center, instY + 10, 0xAAAAAA);
+            // Detailed Step-by-Step Instructions for Spotify Advanced Mode
+            int instY = 68;
+            gfx.centeredText(this.font, Component.literal("1. Click button above to open Spotify Developer Dashboard"), center, instY, 0xAAAAAA);
+            gfx.centeredText(this.font, Component.literal("2. Create App -> Set Redirect URI: http://127.0.0.1:4381/callback"), center, instY + 10, 0xFFD700);
+            gfx.centeredText(this.font, Component.literal("3. Checkmark \"Web API\" -> Paste Client ID & Secret below:"), center, instY + 20, 0xAAAAAA);
         } else {
-            // Instructions for Last.fm Basic Mode
-            int instY = 72;
-            gfx.centeredText(this.font, Component.literal("1. Create account & app to get your free API Key"), center, instY, 0xAAAAAA);
-            gfx.centeredText(this.font, Component.literal("2. Enter API Key & Username below:"), center, instY + 10, 0xFFD700);
+            // Detailed Step-by-Step Instructions for Last.fm Basic Mode
+            int instY = 68;
+            gfx.centeredText(this.font, Component.literal("1. Click button above to create a free Last.fm API Key"), center, instY, 0xAAAAAA);
+            gfx.centeredText(this.font, Component.literal("2. Enter your API Key & Last.fm Username below:"), center, instY + 10, 0xFFD700);
         }
 
         // HUD Preview for dragging

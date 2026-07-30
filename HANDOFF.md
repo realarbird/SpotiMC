@@ -14,15 +14,26 @@
 - **Interactive API Key Buttons**:
   - Advanced Mode: `Get API Keys (Open Spotify Dashboard)` button launches `https://developer.spotify.com/dashboard` directly in the user's web browser.
   - Basic Mode: `Get Last.fm API Key (Free)` button launches `https://www.last.fm/api/account/create` directly in the user's web browser.
-- **Advanced Mode**:
-  - Requires Spotify Premium.
-  - Removed default hardcoded Client ID constant.
-  - Requires users to set up an app at `https://developer.spotify.com/dashboard` with redirect URL `http://127.0.0.1:4381/callback` and "Web API" enabled.
-  - Added in-game text fields (`EditBox`) for Client ID & Client Secret.
-- **Basic Mode**:
-  - Integrates Last.fm REST API ([last.fm/api/account/create](https://www.last.fm/api/account/create)) in `LastFmAPI.java`.
-  - Polls `user.getrecenttracks` every 3 seconds for current track, artist, and album art.
-  - Read-only track display without playback controls.
+
+#### Step-by-Step Setup Instructions
+
+##### Advanced Mode (Requires Spotify Premium)
+1. Open SpotiMC settings (Default key: `;`) and select **`Mode: ADVANCED (Requires Spotify Premium)`**.
+2. Click **`Get API Keys (Open Spotify Dashboard)`** or visit [https://developer.spotify.com/dashboard](https://developer.spotify.com/dashboard).
+3. Log in with your Spotify account and click **Create App**.
+4. Enter any App Name and App Description (e.g. `My SpotiMC`).
+5. Set Redirect URI to exactly: `http://127.0.0.1:4381/callback`
+6. Checkmark **Web API** under APIs used and click **Save**.
+7. In your app dashboard, copy your **Client ID** and **Client Secret**.
+8. Paste your **Client ID** and **Client Secret** into the in-game SpotiMC text fields and click **Connect to Spotify**.
+
+##### Basic Mode (Free - Read-Only Song Display)
+1. Open SpotiMC settings (Default key: `;`) and select **`Mode: BASIC (Free)`**.
+2. Click **`Get Last.fm API Key (Free)`** or visit [https://www.last.fm/api/account/create](https://www.last.fm/api/account/create).
+3. Log in to Last.fm and fill in Application Name and Application Description.
+4. Submit the form to generate your free **API Key**.
+5. Copy your **API Key** and **Last.fm Username** into the in-game text fields.
+6. Click **Save & Connect Last.fm**.
 
 #### 2. Album Cover Rendering Fix
 - **Root Cause**: HTTP client in `AlbumArtTexture.java` was missing HTTP redirect handling (`Redirect.ALWAYS`) and custom `User-Agent` headers, causing CDN requests to fail with 301/302 or 403 status codes.
@@ -39,7 +50,7 @@
 - **Basic Mode Overlay Notice**: Attempting to use playback controls (Play/Pause, Next, Previous, Search) in Basic Mode triggers an action bar message: `"Playback controls require Advanced Mode (Spotify Premium)"`.
 
 #### 5. GUI Redesign & Mod Icon Update
-- **Config GUI (`SpotiMCConfigScreen.java`)**: Added mode toggle button, web browser launch buttons for API keys, multi-line setup instructions, text boxes for credentials, and keybind settings button.
+- **Config GUI (`SpotiMCConfigScreen.java`)**: Added mode toggle button, web browser launch buttons for API keys, step-by-step instructions, text boxes for credentials, and keybind settings button.
 - **Mod Icon**: Updated `src/main/resources/assets/spotimc/icon.png` using `/Users/ayanraj/Documents/SpotiMC/SpotiMC.png`.
 
 ---
