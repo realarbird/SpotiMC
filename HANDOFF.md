@@ -21,7 +21,7 @@
 1. Open SpotiMC settings (Default key: `;`) and select **`Mode: ADVANCED (Requires Spotify Premium)`**.
 2. Click **`Get API Keys (Open Spotify Dashboard)`** or visit [https://developer.spotify.com/dashboard](https://developer.spotify.com/dashboard).
 3. Log in with your Spotify account and click **Create App**.
-4. Enter any App Name and App Description (e.g. `My SpotiMC`).
+4. Enter any App Name and App Description (e.g. `My SpotiMC App`).
 5. Set Redirect URI to exactly: `http://127.0.0.1:4381/callback`
 6. Checkmark **Web API** under APIs used and click **Save**.
 7. In your app dashboard, copy your **Client ID** and **Client Secret**.
@@ -30,10 +30,12 @@
 ##### Basic Mode (Free - Read-Only Song Display)
 1. Open SpotiMC settings (Default key: `;`) and select **`Mode: BASIC (Free)`**.
 2. Click **`Get Last.fm API Key (Free)`** or visit [https://www.last.fm/api/account/create](https://www.last.fm/api/account/create).
-3. Log in to Last.fm and fill in Application Name and Application Description.
-4. Submit the form to generate your free **API Key**.
-5. Copy your **API Key** and **Last.fm Username** into the in-game text fields.
-6. Click **Save & Connect Last.fm**.
+3. Log in to Last.fm and fill in any **Application Name** & **Application Description** (e.g. `My SpotiMC App`).
+4. Set **Callback URL** to: `http://127.0.0.1:4381/callback`.
+5. Leave the **Application homepage** section blank.
+6. Submit the form to generate your free **API Key**.
+7. Copy your **API Key** and **Last.fm Username** into the in-game text fields.
+8. Click **Save & Connect Last.fm**.
 
 #### 2. Album Cover Rendering Fix
 - **Root Cause**: HTTP client in `AlbumArtTexture.java` was missing HTTP redirect handling (`Redirect.ALWAYS`) and custom `User-Agent` headers, causing CDN requests to fail with 301/302 or 403 status codes.
