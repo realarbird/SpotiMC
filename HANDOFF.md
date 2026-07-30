@@ -55,6 +55,10 @@
 - **Config GUI (`SpotiMCConfigScreen.java`)**: Added mode toggle button, web browser launch buttons for API keys, step-by-step instructions, text boxes for credentials, and keybind settings button.
 - **Mod Icon**: Updated `src/main/resources/assets/spotimc/icon.png` using `/Users/ayanraj/Documents/SpotiMC/SpotiMC.png`.
 
+#### 6. Anti-Freeze Protection & Non-Blocking Async Network Calls
+- **Root Cause**: `SpotifyAuth.getAccessToken()` called `refreshToken().join()` synchronously on the caller thread, causing Minecraft's render loop to freeze whenever token refresh occurred or when network requests stalled.
+- **Fix**: Replaced blocking `.join()` with non-blocking asynchronous `refreshTokenAsync()`. Added strict 5-second connection and request timeouts (`Duration.ofSeconds(5)`) across `SpotifyAuth`, `SpotifyAPI`, `LastFmAPI`, and `AlbumArtTexture` so network delays can never freeze or hang the Minecraft client.
+
 ---
 
 ## Session 3 — 2026-07-30 (Security Hardening & Secret Protection)

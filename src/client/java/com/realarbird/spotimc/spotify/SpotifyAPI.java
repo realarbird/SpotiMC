@@ -13,6 +13,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -36,7 +37,10 @@ public class SpotifyAPI {
 
     public SpotifyAPI(SpotifyAuth auth) {
         this.auth = auth;
-        this.httpClient = HttpClient.newBuilder().build();
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .followRedirects(HttpClient.Redirect.ALWAYS)
+                .build();
     }
 
     public void startPolling() {
@@ -76,27 +80,26 @@ public class SpotifyAPI {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(API_BASE + "/me/player"))
+                .timeout(Duration.ofSeconds(5))
                 .header("Authorization", "Bearer " + token)
                 .GET()
                 .build();
 
-        CompletableFuture.runAsync(() -> {
-            try {
-                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-                if (response.statusCode() == 200 && response.body() != null && !response.body().isEmpty()) {
-                    JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
-                    currentPlayback = PlaybackState.fromJson(json);
-                } else if (response.statusCode() == 204) {
-                    currentPlayback = PlaybackState.EMPTY;
-                } else if (response.statusCode() == 401) {
-                    LOGGER.warn("Spotify token unauthorized during polling, attempting refresh.");
-                    auth.refreshToken();
-                }
-            } catch (Exception e) {
-                LOGGER.error("Failed to poll Spotify playback state", e);
+            if (response.statusCode() == 200 && response.body() != null && !response.body().isEmpty()) {
+                JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
+                currentPlayback = PlaybackState.fromJson(json);
+            } else if (response.statusCode() == 204) {
+                currentPlayback = PlaybackState.EMPTY;
+            } else if (response.statusCode() == 401) {
+                LOGGER.warn("Spotify token unauthorized during polling, attempting refresh.");
+                auth.refreshTokenAsync();
             }
-        });
+        } catch (Exception e) {
+            LOGGER.error("Failed to poll Spotify playback state", e);
+        }
     }
 
     public void nextTrack() {
@@ -113,25 +116,16 @@ public class SpotifyAPI {
         sendRequestAsync(API_BASE + endpoint, "PUT", null);
     }
 
-    /**
-     * Plays a specific track URI (e.g. spotify:track:xxx).
-     */
     public void playTrackUri(String trackUri) {
         String jsonBody = "{\"uris\":[\"" + trackUri + "\"]}";
         sendRequestAsync(API_BASE + "/me/player/play", "PUT", jsonBody);
     }
 
-    /**
-     * Plays a specific context URI (e.g. playlist spotify:playlist:xxx).
-     */
     public void playContextUri(String contextUri) {
         String jsonBody = "{\"context_uri\":\"" + contextUri + "\"}";
         sendRequestAsync(API_BASE + "/me/player/play", "PUT", jsonBody);
     }
 
-    /**
-     * Searches tracks on Spotify by query string.
-     */
     public CompletableFuture<List<TrackSearchResult>> searchTracks(String query) {
         if (query == null || query.trim().isEmpty()) {
             return CompletableFuture.completedFuture(List.of());
@@ -147,6 +141,7 @@ public class SpotifyAPI {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(5))
                 .header("Authorization", "Bearer " + token)
                 .GET()
                 .build();
@@ -181,9 +176,6 @@ public class SpotifyAPI {
                 });
     }
 
-    /**
-     * Fetches current user's Spotify playlists.
-     */
     public CompletableFuture<List<PlaylistSearchResult>> getUserPlaylists() {
         String token = auth.getAccessToken();
         if (token == null) {
@@ -193,6 +185,7 @@ public class SpotifyAPI {
         String url = API_BASE + "/me/playlists?limit=20";
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(5))
                 .header("Authorization", "Bearer " + token)
                 .GET()
                 .build();
@@ -236,6 +229,7 @@ public class SpotifyAPI {
 
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(5))
                 .header("Authorization", "Bearer " + token);
 
         if ("POST".equalsIgnoreCase(method)) {
@@ -256,7 +250,7 @@ public class SpotifyAPI {
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() == 401) {
                     LOGGER.warn("Spotify token unauthorized for request {}, attempting refresh.", url);
-                    auth.refreshToken();
+                    auth.refreshTokenAsync();
                 } else if (response.statusCode() >= 400) {
                     LOGGER.warn("Spotify API error for {}: {} {}", url, response.statusCode(), response.body());
                 } else {

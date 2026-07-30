@@ -13,6 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -20,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manages downloading and caching album art from Spotify or Last.fm as Minecraft textures.
- * Downloads happen asynchronously to avoid blocking the game thread.
+ * Downloads happen asynchronously with timeouts to avoid blocking the game thread.
  */
 public class AlbumArtTexture {
 
@@ -33,6 +34,7 @@ public class AlbumArtTexture {
 
     public AlbumArtTexture() {
         this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
                 .followRedirects(HttpClient.Redirect.ALWAYS)
                 .build();
     }
@@ -57,6 +59,7 @@ public class AlbumArtTexture {
         // Start async download if not already in progress
         if (downloading.add(url)) {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(Duration.ofSeconds(5))
                     .header("User-Agent", "SpotiMC/1.0 (Minecraft Fabric Mod)")
                     .GET()
                     .build();
@@ -71,13 +74,20 @@ public class AlbumArtTexture {
                                 Identifier id = Identifier.fromNamespaceAndPath("spotimc", "albumart/" + hash);
 
                                 // Register on the main thread and upload pixels to GPU
-                                Minecraft.getInstance().execute(() -> {
-                                    DynamicTexture texture = new DynamicTexture(() -> "spotimc_art_" + hash, image);
-                                    texture.upload();
-                                    Minecraft.getInstance().getTextureManager().register(id, texture);
-                                    registeredTextures.add(texture);
-                                    textureCache.put(url, id);
-                                });
+                                Minecraft client = Minecraft.getInstance();
+                                if (client != null) {
+                                    client.execute(() -> {
+                                        try {
+                                            DynamicTexture texture = new DynamicTexture(() -> "spotimc_art_" + hash, image);
+                                            texture.upload();
+                                            client.getTextureManager().register(id, texture);
+                                            registeredTextures.add(texture);
+                                            textureCache.put(url, id);
+                                        } catch (Exception ex) {
+                                            LOGGER.error("Failed to register dynamic texture for {}", url, ex);
+                                        }
+                                    });
+                                }
                             } catch (Exception e) {
                                 LOGGER.error("Failed to read downloaded album art from {}", url, e);
                             }

@@ -20,13 +20,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Handles Spotify OAuth2 Authentication using PKCE (Authorization Code Flow with Proof Key for Code Exchange).
- * Requires the user to enter their own Spotify Client ID and Client Secret from developer.spotify.com/dashboard.
+ * Handles Spotify OAuth2 Authentication using PKCE.
+ * All network calls operate asynchronously with strict timeouts to prevent freezing the main Minecraft thread.
  */
 public class SpotifyAuth {
 
@@ -40,6 +41,7 @@ public class SpotifyAuth {
     private String accessToken;
     private String refreshToken;
     private long expiresAt;
+    private boolean isRefreshing = false;
 
     private Runnable onAuthenticated;
     private HttpServer authServer;
@@ -47,7 +49,10 @@ public class SpotifyAuth {
     private String codeVerifier;
 
     public SpotifyAuth() {
-        this.httpClient = HttpClient.newBuilder().build();
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .followRedirects(HttpClient.Redirect.ALWAYS)
+                .build();
     }
 
     public void setOnAuthenticated(Runnable onAuthenticated) {
@@ -86,9 +91,6 @@ public class SpotifyAuth {
         return config.clientSecret != null ? config.clientSecret.trim() : "";
     }
 
-    /**
-     * Generates a random PKCE code verifier (RFC 7636).
-     */
     private static String generateCodeVerifier() {
         SecureRandom random = new SecureRandom();
         byte[] code = new byte[32];
@@ -96,9 +98,6 @@ public class SpotifyAuth {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(code);
     }
 
-    /**
-     * Generates the SHA-256 PKCE code challenge (RFC 7636).
-     */
     private static String generateCodeChallenge(String verifier) {
         try {
             byte[] bytes = verifier.getBytes(StandardCharsets.US_ASCII);
@@ -112,7 +111,7 @@ public class SpotifyAuth {
     }
 
     /**
-     * Starts the Spotify PKCE OAuth2 browser authorization flow.
+     * Starts the Spotify OAuth2 flow asynchronously in browser.
      */
     public void startAuth() {
         String clientId = getClientId();
@@ -121,83 +120,95 @@ public class SpotifyAuth {
             return;
         }
 
-        try {
-            expectedState = UUID.randomUUID().toString();
-            codeVerifier = generateCodeVerifier();
-            String codeChallenge = generateCodeChallenge(codeVerifier);
-
-            String url = "https://accounts.spotify.com/authorize" +
-                    "?response_type=code" +
-                    "&client_id=" + clientId +
-                    "&scope=" + URLEncoder.encode(SCOPES, StandardCharsets.UTF_8) +
-                    "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI, StandardCharsets.UTF_8) +
-                    "&state=" + expectedState +
-                    "&code_challenge_method=S256" +
-                    "&code_challenge=" + codeChallenge;
-
-            startCallbackServer();
-
+        CompletableFuture.runAsync(() -> {
             try {
-                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                    Desktop.getDesktop().browse(new URI(url));
-                } else {
-                    String os = System.getProperty("os.name").toLowerCase();
-                    if (os.contains("mac")) {
-                        Runtime.getRuntime().exec(new String[]{"open", url});
-                    } else if (os.contains("win")) {
-                        Runtime.getRuntime().exec(new String[]{"rundll32", "url.dll,FileProtocolHandler", url});
-                    } else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
-                        Runtime.getRuntime().exec(new String[]{"xdg-open", url});
-                    }
-                }
-            } catch (Exception e) {
-                LOGGER.error("Failed to open browser for Spotify authentication.", e);
-            }
+                expectedState = UUID.randomUUID().toString();
+                codeVerifier = generateCodeVerifier();
+                String codeChallenge = generateCodeChallenge(codeVerifier);
 
-        } catch (Exception e) {
-            LOGGER.error("Failed to start Spotify authentication.", e);
-        }
+                String url = "https://accounts.spotify.com/authorize" +
+                        "?response_type=code" +
+                        "&client_id=" + clientId +
+                        "&scope=" + URLEncoder.encode(SCOPES, StandardCharsets.UTF_8) +
+                        "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI, StandardCharsets.UTF_8) +
+                        "&state=" + expectedState +
+                        "&code_challenge_method=S256" +
+                        "&code_challenge=" + codeChallenge;
+
+                startCallbackServer();
+
+                try {
+                    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                        Desktop.getDesktop().browse(new URI(url));
+                    } else {
+                        String os = System.getProperty("os.name").toLowerCase();
+                        if (os.contains("mac")) {
+                            Runtime.getRuntime().exec(new String[]{"open", url});
+                        } else if (os.contains("win")) {
+                            Runtime.getRuntime().exec(new String[]{"rundll32", "url.dll,FileProtocolHandler", url});
+                        } else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
+                            Runtime.getRuntime().exec(new String[]{"xdg-open", url});
+                        }
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Failed to open browser for Spotify authentication.", e);
+                }
+
+            } catch (Exception e) {
+                LOGGER.error("Failed to start Spotify authentication.", e);
+            }
+        });
     }
 
-    private void startCallbackServer() throws IOException {
-        if (authServer != null) {
-            authServer.stop(0);
-        }
+    private void startCallbackServer() {
+        try {
+            if (authServer != null) {
+                try {
+                    authServer.stop(0);
+                } catch (Exception ignored) {}
+            }
 
-        authServer = HttpServer.create(new InetSocketAddress(4381), 0);
-        authServer.createContext("/callback", exchange -> {
-            String query = exchange.getRequestURI().getQuery();
-            String response = "Authentication failed. Please try again.";
-            int statusCode = 400;
+            authServer = HttpServer.create(new InetSocketAddress(4381), 0);
+            authServer.createContext("/callback", exchange -> {
+                String query = exchange.getRequestURI().getQuery();
+                String response = "Authentication failed. Please try again.";
+                int statusCode = 400;
 
-            if (query != null) {
-                String code = null;
-                String state = null;
-                String[] pairs = query.split("&");
-                for (String pair : pairs) {
-                    String[] kv = pair.split("=");
-                    if (kv.length > 1) {
-                        if ("code".equals(kv[0])) code = kv[1];
-                        if ("state".equals(kv[0])) state = kv[1];
+                if (query != null) {
+                    String code = null;
+                    String state = null;
+                    String[] pairs = query.split("&");
+                    for (String pair : pairs) {
+                        String[] kv = pair.split("=");
+                        if (kv.length > 1) {
+                            if ("code".equals(kv[0])) code = kv[1];
+                            if ("state".equals(kv[0])) state = kv[1];
+                        }
+                    }
+
+                    if (expectedState != null && expectedState.equals(state) && code != null) {
+                        exchangeToken(code);
+                        response = "Authentication successful! You can close this tab and return to Minecraft.";
+                        statusCode = 200;
                     }
                 }
 
-                if (expectedState != null && expectedState.equals(state) && code != null) {
-                    exchangeToken(code);
-                    response = "Authentication successful! You can close this tab and return to Minecraft.";
-                    statusCode = 200;
+                exchange.sendResponseHeaders(statusCode, response.length());
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(response.getBytes(StandardCharsets.UTF_8));
                 }
-            }
 
-            exchange.sendResponseHeaders(statusCode, response.length());
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response.getBytes(StandardCharsets.UTF_8));
-            }
+                CompletableFuture.runAsync(() -> {
+                    if (authServer != null) {
+                        authServer.stop(1);
+                    }
+                });
+            });
 
-            CompletableFuture.runAsync(() -> authServer.stop(1));
-        });
-
-        authServer.start();
+            authServer.start();
+        } catch (IOException e) {
+            LOGGER.error("Failed to start OAuth callback server on port 4381", e);
+        }
     }
 
     private void exchangeToken(String code) {
@@ -216,29 +227,38 @@ public class SpotifyAuth {
         sendTokenRequest(body);
     }
 
-    public synchronized CompletableFuture<Void> refreshToken() {
-        if (refreshToken == null) {
-            return CompletableFuture.completedFuture(null);
+    public synchronized void refreshTokenAsync() {
+        if (refreshToken == null || refreshToken.isEmpty() || isRefreshing) {
+            return;
         }
 
-        String clientId = getClientId();
-        StringBuilder sb = new StringBuilder();
-        sb.append("grant_type=refresh_token")
-          .append("&client_id=").append(clientId)
-          .append("&refresh_token=").append(refreshToken);
+        isRefreshing = true;
+        CompletableFuture.runAsync(() -> {
+            try {
+                String clientId = getClientId();
+                StringBuilder sb = new StringBuilder();
+                sb.append("grant_type=refresh_token")
+                  .append("&client_id=").append(clientId)
+                  .append("&refresh_token=").append(refreshToken);
 
-        String clientSecret = getClientSecret();
-        if (!clientSecret.isEmpty()) {
-            sb.append("&client_secret=").append(URLEncoder.encode(clientSecret, StandardCharsets.UTF_8));
-        }
+                String clientSecret = getClientSecret();
+                if (!clientSecret.isEmpty()) {
+                    sb.append("&client_secret=").append(URLEncoder.encode(clientSecret, StandardCharsets.UTF_8));
+                }
 
-        final String tokenBody = sb.toString();
-        return CompletableFuture.runAsync(() -> sendTokenRequest(tokenBody));
+                sendTokenRequest(sb.toString());
+            } finally {
+                synchronized (this) {
+                    isRefreshing = false;
+                }
+            }
+        });
     }
 
     private void sendTokenRequest(String body) {
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create("https://accounts.spotify.com/api/token"))
+                .timeout(Duration.ofSeconds(5))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(body));
 
@@ -281,8 +301,9 @@ public class SpotifyAuth {
             return null;
         }
 
+        // Trigger asynchronous token refresh if token expires within 30 seconds (never blocks caller thread)
         if (System.currentTimeMillis() > expiresAt - 30000) {
-            refreshToken().join();
+            refreshTokenAsync();
         }
 
         return accessToken;
