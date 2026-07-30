@@ -4,6 +4,25 @@
 
 ---
 
+## Session 3 — 2026-07-30 (Security Hardening & Secret Protection)
+
+### What Was Done
+
+#### 1. OAuth2 PKCE Security Migration
+- **PKCE Implementation**: Migrated `SpotifyAuth.java` to use **OAuth2 PKCE (Proof Key for Code Exchange RFC 7636)** with SHA-256 code challenge generation (`code_challenge_method=S256`).
+- **No Hardcoded Secrets**: Removed all hardcoded client secret constants from Java source files and documentation to comply with GitGuardian secret detection policies.
+- **Dynamic Local Config**: Added `clientId` and `clientSecret` fields to `SpotiMCConfig.java`. Credentials are dynamically loaded at runtime from `.minecraft/config/spotimc.json`.
+
+#### 2. Git Secret Prevention & `.gitignore` Updates
+- Added patterns to `.gitignore`: `*.env`, `*.secret`, `spotimc.local.json`, and `run/`.
+- Configured local development run directory (`run/config/spotimc.json`) for uncommitted local key storage.
+
+#### 3. Repository Cleansing
+- Scrubbed historical commits containing secrets and force-pushed clean tree to GitHub (`https://github.com/realarbird/SpotiMC`).
+- Latest commit: `26c8953`.
+
+---
+
 ## Session 2 — 2026-07-30 (Cover Art Fix, Text Truncation, Keybind Update & Search Menu)
 
 ### What Was Done
