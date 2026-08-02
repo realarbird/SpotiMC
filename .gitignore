@@ -38,6 +38,8 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+latest.log
+logs/
 
 # secrets
 *.env

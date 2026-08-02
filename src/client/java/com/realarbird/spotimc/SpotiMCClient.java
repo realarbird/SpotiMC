@@ -34,65 +34,76 @@ public class SpotiMCClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        LOGGER.info("Initializing SpotiMC client...");
+        System.out.println("[SpotiMC] SpotiMCClient.onInitializeClient() ENTRY");
+        try {
+            LOGGER.info("Initializing SpotiMC client...");
 
-        // 1. Load configuration
-        CONFIG = SpotiMCConfig.getInstance();
-        SpotiMCConfig.init(
-                Minecraft.getInstance().gameDirectory.toPath().resolve("config")
-        );
-        CONFIG = SpotiMCConfig.getInstance();
+            // 1. Load configuration
+            CONFIG = SpotiMCConfig.getInstance();
+            SpotiMCConfig.init(
+                    Minecraft.getInstance().gameDirectory.toPath().resolve("config")
+            );
+            CONFIG = SpotiMCConfig.getInstance();
 
-        // 2. Initialize Spotify authentication & API
-        SPOTIFY_AUTH = new SpotifyAuth();
-        SPOTIFY_AUTH.setOnAuthenticated(() -> {
-            LOGGER.info("Spotify authentication successful!");
-            CONFIG.accessToken = SPOTIFY_AUTH.getAccessToken();
-            CONFIG.refreshToken = SPOTIFY_AUTH.getRefreshTokenValue();
-            CONFIG.tokenExpiresAt = SPOTIFY_AUTH.getExpiresAt();
-            SpotiMCConfig.save();
-            if (CONFIG.isAdvancedMode()) {
-                SPOTIFY_API.startPolling();
+            LOGGER.info("SpotiMC config loaded. Mode: {}, HUD visible: {}", CONFIG.mode, CONFIG.hudVisible);
+
+            // 2. Initialize Spotify authentication & API
+            SPOTIFY_AUTH = new SpotifyAuth();
+            SPOTIFY_AUTH.setOnAuthenticated(() -> {
+                LOGGER.info("Spotify authentication successful!");
+                CONFIG.accessToken = SPOTIFY_AUTH.getAccessToken();
+                CONFIG.refreshToken = SPOTIFY_AUTH.getRefreshTokenValue();
+                CONFIG.tokenExpiresAt = SPOTIFY_AUTH.getExpiresAt();
+                SpotiMCConfig.save();
+                if (CONFIG.isAdvancedMode()) {
+                    SPOTIFY_API.startPolling();
+                }
+            });
+
+            if (CONFIG.hasStoredTokens()) {
+                LOGGER.info("Restoring Spotify session from saved tokens...");
+                SPOTIFY_AUTH.setTokens(CONFIG.accessToken, CONFIG.refreshToken, CONFIG.tokenExpiresAt);
             }
-        });
 
-        if (CONFIG.hasStoredTokens()) {
-            LOGGER.info("Restoring Spotify session from saved tokens...");
-            SPOTIFY_AUTH.setTokens(CONFIG.accessToken, CONFIG.refreshToken, CONFIG.tokenExpiresAt);
+            SPOTIFY_API = new SpotifyAPI(SPOTIFY_AUTH);
+
+            // 3. Initialize Last.fm API
+            LASTFM_API = new LastFmAPI();
+
+            // Start active poller based on mode
+            LOGGER.info("Starting active poller for mode: {}", CONFIG.mode);
+            updateActiveMode();
+
+            // 4. Register client-side networking receiver for player overhead song display
+            ClientPlayNetworking.registerGlobalReceiver(SpotiMCSongPayload.TYPE, (payload, context) -> {
+                context.client().execute(() -> ClientSongTracker.updateSong(payload));
+            });
+
+            // 5. Register tick handler to broadcast local song info and process social tracking
+            ClientTickEvents.END_CLIENT_TICK.register(client -> {
+                PlaybackState state = getActivePlayback();
+                if (state != null) {
+                    ClientSongTracker.tickBroadcast(state.trackName(), state.artistName(), state.isPlaying());
+                }
+            });
+
+            // 6. Initialize HUD overlay
+            HUD = new SpotiMCHud();
+            HudElementRegistry.addLast(
+                    Identifier.fromNamespaceAndPath(MOD_ID, "spotify_hud"),
+                    HUD
+            );
+
+            // 7. Register keybindings
+            SpotiMCKeybinds.register();
+
+            LOGGER.info("SpotiMC client initialized successfully!");
+            System.out.println("[SpotiMC] SpotiMCClient.onInitializeClient() completed successfully");
+        } catch (Exception e) {
+            LOGGER.error("[SpotiMC] FATAL: SpotiMCClient.onInitializeClient() failed!", e);
+            System.err.println("[SpotiMC] FATAL: SpotiMCClient.onInitializeClient() failed: " + e);
+            e.printStackTrace(System.err);
         }
-
-        SPOTIFY_API = new SpotifyAPI(SPOTIFY_AUTH);
-
-        // 3. Initialize Last.fm API
-        LASTFM_API = new LastFmAPI();
-
-        // Start active poller based on mode
-        updateActiveMode();
-
-        // 4. Register client-side networking receiver for player overhead song display
-        ClientPlayNetworking.registerGlobalReceiver(SpotiMCSongPayload.TYPE, (payload, context) -> {
-            context.client().execute(() -> ClientSongTracker.updateSong(payload));
-        });
-
-        // 5. Register tick handler to broadcast local song info and process social tracking
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            PlaybackState state = getActivePlayback();
-            if (state != null) {
-                ClientSongTracker.tickBroadcast(state.trackName(), state.artistName(), state.isPlaying());
-            }
-        });
-
-        // 6. Initialize HUD overlay
-        HUD = new SpotiMCHud();
-        HudElementRegistry.addLast(
-                Identifier.fromNamespaceAndPath(MOD_ID, "spotify_hud"),
-                HUD
-        );
-
-        // 7. Register keybindings
-        SpotiMCKeybinds.register();
-
-        LOGGER.info("SpotiMC client initialized successfully!");
     }
 
     /**

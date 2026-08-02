@@ -150,6 +150,20 @@
 - OAuth2 Authorization Code Flow (`http://127.0.0.1:4381/callback`).
 - HUD overlay with progress bar in Spotify Green (`#1DB954`).
 
+### Session 12 — 2026-08-01 (Lunar Client Silent Initialization Failure Diagnosis & Fix)
+- **Album Art Shows Fallback Only — Root Cause Found in `latest.log`**:
+  - *Diagnosis*: The user's `latest.log` was analyzed. Despite SpotiMC appearing in the Fabric ResourceManager mod list, **zero SpotiMC log messages** were emitted — not even the `"Initializing SpotiMC client..."` first line of `onInitializeClient()`. This proves the mod's entrypoints were **never invoked** by Fabric Loader.
+  - *Environment*: The user runs on **Lunar Client** (`com.moonsworth.lunar.genesis.*` bootstrap), which wraps Minecraft in its own classloader (`Genesis`). Lunar Client can silently swallow initialization errors that would otherwise crash or log in vanilla Fabric.
+  - *Root Cause 1 — Mixin `defaultRequire: 1`*: `spotimc.mixins.json` had `"defaultRequire": 1`, meaning if the `EntityRendererMixin` injection target (`extractNameTags`) didn't match Lunar Client's remapped method signature, the mixin system would throw a hard error. Lunar's Genesis bootstrap likely caught this error during mod construction and silently disabled the entire mod before entrypoints ran.
+  - *Root Cause 2 — No error resilience*: `onInitialize()` and `onInitializeClient()` had no try-catch wrappers, so any exception (e.g., `NoClassDefFoundError` from a Fabric API version mismatch for `HudElementRegistry`, class verification errors from Lunar's module system, or classloading failures) would propagate and silently kill initialization under Genesis.
+  - *Fix*:
+    - **`spotimc.mixins.json`**: Changed `"defaultRequire": 1` → `"defaultRequire": 0` so a mixin target miss degrades gracefully instead of killing the mod.
+    - **`SpotiMCMod.java`**: Added `System.out.println("[SpotiMC] SpotiMCMod.onInitialize() ENTRY")` at the very start (before any SLF4J call) and wrapped the entire method body in try-catch logging to both `LOGGER.error` and `System.err`.
+    - **`SpotiMCClient.java`**: Same treatment — `System.out.println` entry marker, try-catch wrapper, added config/mode logging after load.
+    - **`EntityRendererMixin.java`**: Wrapped the injection method body in try-catch to prevent renderer crashes from propagating.
+  - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
+  - *Next Step*: Install the new JAR and check `latest.log` for `[SpotiMC]` prefixed messages. If entrypoints now fire but album art still fails, the detailed Session 11 logging will pinpoint whether the issue is: (a) no album art URL from the API, (b) HTTP download failure, (c) image decode failure, or (d) texture registration failure.
+
 ---
 
 ## Build Verification & Repository Status
@@ -159,9 +173,9 @@
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew build
   ```
 - **Built Artifact**: `build/libs/spotimc-1.0.0.jar`
-- **Latest Verification (Session 10)**:
+- **Latest Verification (Session 12)**:
   ```bash
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build
   ```
-  Completed successfully on 2026-07-30.
+  Completed successfully on 2026-08-01.
 - **GitHub Repository**: [https://github.com/realarbird/SpotiMC](https://github.com/realarbird/SpotiMC) (`main` branch)

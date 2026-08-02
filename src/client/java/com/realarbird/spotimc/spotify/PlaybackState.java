@@ -82,9 +82,9 @@ public record PlaybackState(
             }
 
             if (albumArtUrl.isEmpty()) {
-                LOGGER.warn("No album art URL found for track '{}' by '{}'", trackName, artistName);
+                LOGGER.warn("[PlaybackState] No album art URL found in Spotify item JSON for track '{}' by '{}'", trackName, artistName);
             } else {
-                LOGGER.debug("Album art URL for '{}': {}", trackName, albumArtUrl);
+                LOGGER.info("[PlaybackState] Found Spotify album art URL for track '{}': {}", trackName, albumArtUrl);
             }
 
             return new PlaybackState(trackName, artistName, albumName, albumArtUrl, isPlaying, progressMs, durationMs, shuffleState, repeatState);

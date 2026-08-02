@@ -138,9 +138,9 @@ public class LastFmAPI {
                         }
 
                         if (albumArtUrl.isEmpty()) {
-                            LOGGER.warn("No album art URL resolved for Last.fm track '{}' by '{}'", trackName, artistName);
+                            LOGGER.warn("[LastFm] No album art URL resolved for Last.fm track '{}' by '{}'", trackName, artistName);
                         } else {
-                            LOGGER.debug("Last.fm album art URL for '{}': {}", trackName, albumArtUrl);
+                            LOGGER.info("[LastFm] Resolved Last.fm album art URL for track '{}': {}", trackName, albumArtUrl);
                         }
 
                         boolean isNowPlaying = false;

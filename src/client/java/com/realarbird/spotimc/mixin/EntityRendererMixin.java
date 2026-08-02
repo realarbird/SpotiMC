@@ -20,25 +20,26 @@ public abstract class EntityRendererMixin {
             at = @At("TAIL")
     )
     private void spotimc$renderPlayerSongOverhead(Entity entity, EntityRenderState state, float partialTick, CallbackInfo ci) {
-        SpotiMCConfig config = SpotiMCConfig.getInstance();
-        if (!config.showOthersListeningStats) {
-            return;
-        }
-
-        if (entity instanceof Player player) {
-            ClientSongTracker.PlayerSongInfo songInfo = ClientSongTracker.getSong(player.getUUID());
-            // NameTagFeatureRenderer submits one formatted line at a time; embedded
-            // newlines are not laid out as a second line. Submit the normal name as
-            // the upper line and the listening status as the lower name-tag line.
-            if (songInfo != null && songInfo.isPlaying()
-                    && songInfo.trackName() != null && !songInfo.trackName().isEmpty()
-                    && state.nameTag != null && state.nameTagAttachment != null) {
-                Component playerName = state.nameTag;
-                state.scoreText = state.scoreText == null
-                        ? playerName
-                        : Component.empty().append(state.scoreText).append(" ").append(playerName);
-                state.nameTag = Component.literal(formatSong(songInfo)).withColor(0x1DB954);
+        try {
+            SpotiMCConfig config = SpotiMCConfig.getInstance();
+            if (!config.showOthersListeningStats) {
+                return;
             }
+
+            if (entity instanceof Player player) {
+                ClientSongTracker.PlayerSongInfo songInfo = ClientSongTracker.getSong(player.getUUID());
+                if (songInfo != null && songInfo.isPlaying()
+                        && songInfo.trackName() != null && !songInfo.trackName().isEmpty()
+                        && state.nameTag != null && state.nameTagAttachment != null) {
+                    Component playerName = state.nameTag;
+                    state.scoreText = state.scoreText == null
+                            ? playerName
+                            : Component.empty().append(state.scoreText).append(" ").append(playerName);
+                    state.nameTag = Component.literal(formatSong(songInfo)).withColor(0x1DB954);
+                }
+            }
+        } catch (Exception e) {
+            // Silently ignore mixin errors to avoid crashing the renderer
         }
     }
 

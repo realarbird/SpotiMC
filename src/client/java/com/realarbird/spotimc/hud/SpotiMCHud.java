@@ -18,12 +18,14 @@ import net.minecraft.resources.Identifier;
  */
 public class SpotiMCHud implements HudElement {
 
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("SpotiMC/HUD");
     public static final Identifier DEFAULT_COVER = Identifier.fromNamespaceAndPath("spotimc", "textures/gui/default_cover.png");
     /** The default cover PNG is 64x64 pixels. */
     private static final int DEFAULT_COVER_SIZE = 64;
 
     private static SpotiMCHud instance;
     private final AlbumArtTexture albumArtTexture;
+    private String lastLoggedArtState = "";
 
     public SpotiMCHud() {
         this.albumArtTexture = new AlbumArtTexture();
@@ -76,12 +78,20 @@ public class SpotiMCHud implements HudElement {
         // Use the 12-parameter blit overload so we can specify separate draw
         // size (32x32) and source region size (full texture) to sample the
         // entire texture rather than just the top-left quarter.
+        String artUrl = playback.albumArtUrl();
         AlbumArtTexture.CachedTexture cachedArt = null;
-        if (playback.albumArtUrl() != null && !playback.albumArtUrl().isEmpty()) {
-            cachedArt = albumArtTexture.getCachedTexture(playback.albumArtUrl());
+        if (artUrl != null && !artUrl.isEmpty()) {
+            cachedArt = albumArtTexture.getCachedTexture(artUrl);
         }
 
         if (cachedArt != null) {
+            String currentState = "LOADED:" + artUrl;
+            if (!currentState.equals(lastLoggedArtState)) {
+                LOGGER.info("[SpotiMCHud] Displaying custom album art texture ({}) for track '{}' (URL: {})",
+                        cachedArt.id(), playback.trackName(), artUrl);
+                lastLoggedArtState = currentState;
+            }
+
             // Draw the downloaded album art. Source region = full texture.
             gfx.blit(RenderPipelines.GUI_TEXTURED, cachedArt.id(),
                     9, 9,                               // draw position (x, y)
@@ -91,6 +101,24 @@ public class SpotiMCHud implements HudElement {
                     cachedArt.width(), cachedArt.height()  // texture dimensions
             );
         } else {
+            // Reason logging for fallback cover
+            String reason;
+            if (artUrl == null || artUrl.isEmpty()) {
+                reason = "No album art URL provided by API for track '" + playback.trackName() + "' by '" + playback.artistName() + "'";
+            } else if (albumArtTexture.isFailed(artUrl)) {
+                reason = "Album art download or decoding FAILED previously for URL: " + artUrl;
+            } else if (albumArtTexture.isDownloading(artUrl)) {
+                reason = "Album art is currently DOWNLOADING in background for URL: " + artUrl;
+            } else {
+                reason = "Album art download PENDING for URL: " + artUrl;
+            }
+
+            String currentState = "FALLBACK:" + (artUrl != null ? artUrl : "") + ":" + reason;
+            if (!currentState.equals(lastLoggedArtState)) {
+                LOGGER.info("[SpotiMCHud] Displaying FALLBACK cover picture (default_cover.png). Reason: {}", reason);
+                lastLoggedArtState = currentState;
+            }
+
             // Draw default cover picture — 64x64 PNG, sample the full texture
             gfx.blit(RenderPipelines.GUI_TEXTURED, DEFAULT_COVER,
                     9, 9,
