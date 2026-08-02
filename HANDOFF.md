@@ -184,6 +184,14 @@
     - **`AlbumArtTexture.java`**: Added a fallback decoder using `javax.imageio.ImageIO.read()`. When `NativeImage.read()` throws an `IOException` due to a non-PNG signature, the stream is reset and decoded via `ImageIO`. The decoded `BufferedImage` pixels are converted to ABGR integers and written to `NativeImage.setPixelABGR(x, y, abgr)`.
   - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
 
+### Session 15 — 2026-08-01 (Fallback Cover Image Update to Official SpotiMC Mod Logo)
+- **Mod Icon Fallback Cover Artwork**:
+  - *Objective*: Replace the old AI-generated fallback cover art with the official SpotiMC mod logo image (`icon.png` / `SpotiMC.png`).
+  - *Changes*:
+    - **`default_cover.png`**: Resized the official 1254x1254 SpotiMC mod logo image (`icon.png`) to 256x256 RGBA PNG using high-quality Lanczos anti-aliasing resampling and saved to `src/main/resources/assets/spotimc/textures/gui/default_cover.png`.
+    - **`SpotiMCHud.java`**: Updated `DEFAULT_COVER_SIZE` from 64 to 256 so the HUD blits the crisp 256x256 fallback texture scaled to the 32x32 HUD artwork slot.
+  - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
+
 ---
 
 ## Build Verification & Repository Status
@@ -193,7 +201,7 @@
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew build
   ```
 - **Built Artifact**: `build/libs/spotimc-1.0.0.jar`
-- **Latest Verification (Session 14)**:
+- **Latest Verification (Session 15)**:
   ```bash
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build
   ```

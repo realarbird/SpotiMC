@@ -20,8 +20,8 @@ public class SpotiMCHud implements HudElement {
 
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("SpotiMC/HUD");
     public static final Identifier DEFAULT_COVER = Identifier.fromNamespaceAndPath("spotimc", "textures/gui/default_cover.png");
-    /** The default cover PNG is 64x64 pixels. */
-    private static final int DEFAULT_COVER_SIZE = 64;
+    /** The default cover PNG is 256x256 pixels. */
+    private static final int DEFAULT_COVER_SIZE = 256;
 
     private static SpotiMCHud instance;
     private final AlbumArtTexture albumArtTexture;
