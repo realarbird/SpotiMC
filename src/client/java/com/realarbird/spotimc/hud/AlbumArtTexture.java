@@ -119,11 +119,38 @@ public class AlbumArtTexture {
 
             System.out.println("[SpotiMC/AlbumArt] Successfully downloaded album art (" + bodyLen + " bytes, content-type: " + contentType + ") from " + url);
 
-            // Decode the image bytes. NativeImage.read(InputStream) requests RGBA
-            // from STB Image, so the result is always RGBA regardless of source format.
+            // Decode image bytes.
+            // Note: Minecraft 26.2's NativeImage.read(InputStream) validates PNG header magic bytes
+            // and throws IOException("Bad PNG Signature") for non-PNG images (such as Spotify/Last.fm JPEG covers).
+            // We try NativeImage.read first, and fall back to javax.imageio.ImageIO for JPEGs and other formats.
             NativeImage image;
             try (ByteArrayInputStream bais = new ByteArrayInputStream(response.body())) {
-                image = NativeImage.read(bais);
+                try {
+                    image = NativeImage.read(bais);
+                } catch (Exception pngEx) {
+                    System.out.println("[SpotiMC/AlbumArt] NativeImage PNG decoding failed (" + pngEx.getMessage() + "), trying ImageIO decoder for non-PNG format...");
+                    bais.reset();
+                    java.awt.image.BufferedImage bufferedImage = javax.imageio.ImageIO.read(bais);
+                    if (bufferedImage != null) {
+                        int w = bufferedImage.getWidth();
+                        int h = bufferedImage.getHeight();
+                        image = new NativeImage(NativeImage.Format.RGBA, w, h, false);
+                        for (int y = 0; y < h; y++) {
+                            for (int x = 0; x < w; x++) {
+                                int argb = bufferedImage.getRGB(x, y);
+                                int a = (argb >> 24) & 0xFF;
+                                int r = (argb >> 16) & 0xFF;
+                                int g = (argb >> 8) & 0xFF;
+                                int b = argb & 0xFF;
+                                int abgr = (a << 24) | (b << 16) | (g << 8) | r;
+                                image.setPixelABGR(x, y, abgr);
+                            }
+                        }
+                        System.out.println("[SpotiMC/AlbumArt] Successfully decoded non-PNG image via ImageIO (" + w + "x" + h + ")");
+                    } else {
+                        throw new java.io.IOException("ImageIO returned null for image stream from " + url);
+                    }
+                }
             } catch (Exception decodeEx) {
                 System.err.println("[SpotiMC/AlbumArt] FAILED to decode image bytes for URL: " + url + " (byte count: " + bodyLen + ")");
                 decodeEx.printStackTrace(System.err);
@@ -132,9 +159,10 @@ public class AlbumArtTexture {
                 return;
             }
 
-            int imgW = image.getWidth();
-            int imgH = image.getHeight();
-            System.out.println("[SpotiMC/AlbumArt] Decoded album art dimensions: " + imgW + "x" + imgH + ", format: " + image.format() + " for URL: " + url);
+            final NativeImage finalImage = image;
+            int imgW = finalImage.getWidth();
+            int imgH = finalImage.getHeight();
+            System.out.println("[SpotiMC/AlbumArt] Decoded album art dimensions: " + imgW + "x" + imgH + ", format: " + finalImage.format() + " for URL: " + url);
 
             String hash = md5Hash(url);
             Identifier id = Identifier.fromNamespaceAndPath("spotimc", "albumart/" + hash);
@@ -142,7 +170,7 @@ public class AlbumArtTexture {
             Minecraft client = Minecraft.getInstance();
             if (client == null) {
                 System.err.println("[SpotiMC/AlbumArt] Minecraft client instance is null, cannot register texture for " + url);
-                image.close();
+                finalImage.close();
                 downloading.remove(url);
                 return;
             }
@@ -153,7 +181,7 @@ public class AlbumArtTexture {
                     // The DynamicTexture constructor calls createTexture() to allocate
                     // a GpuTexture, then upload() to push pixel data. Both require
                     // the render thread, which client.execute() guarantees.
-                    DynamicTexture texture = new DynamicTexture(() -> "spotimc_art_" + hash, image);
+                    DynamicTexture texture = new DynamicTexture(() -> "spotimc_art_" + hash, finalImage);
                     client.getTextureManager().register(id, texture);
                     registeredTextures.add(texture);
                     CachedTexture ct = new CachedTexture(id, imgW, imgH);
@@ -163,7 +191,7 @@ public class AlbumArtTexture {
                     System.err.println("[SpotiMC/AlbumArt] FAILED to register dynamic texture on main thread for URL: " + url);
                     ex.printStackTrace(System.err);
                     failedUrls.add(url);
-                    image.close();
+                    finalImage.close();
                 } finally {
                     downloading.remove(url);
                 }

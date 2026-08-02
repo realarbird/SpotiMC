@@ -175,6 +175,15 @@
   - *Fix*: Converted all diagnostic loggers in `SpotiMCHud`, `AlbumArtTexture`, `PlaybackState`, `SpotifyAPI`, and `LastFmAPI` from SLF4J `LOGGER` to `System.out.println` / `System.err.println` (`[SpotiMC/...]` tags), which Lunar Client forwards directly to `latest.log` under `[STDOUT]`/`[STDERR]`.
   - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
 
+### Session 14 — 2026-08-01 (Album Art Decoding Fix — Resolved `Bad PNG Signature` Exception)
+- **Root Cause Found in `latest.log`**:
+  - *Diagnosis*: Analyzing the latest log revealed:
+    `[STDERR]: java.io.IOException: Bad PNG Signature` at `net.minecraft.util.PngInfo.validateHeader(PngInfo.java:53)` → `NativeImage.read(NativeImage.java:154)`
+  - *Root Cause*: In Minecraft 26.2, Mojang updated `NativeImage.read(InputStream)` to validate PNG magic bytes (`0x89 50 4E 47`). Spotify and Last.fm return **JPEG** images (`image/jpeg`, e.g. `https://i.scdn.co/image/...`), causing `NativeImage.read()` to fail header validation with `Bad PNG Signature` for every song.
+  - *Fix*:
+    - **`AlbumArtTexture.java`**: Added a fallback decoder using `javax.imageio.ImageIO.read()`. When `NativeImage.read()` throws an `IOException` due to a non-PNG signature, the stream is reset and decoded via `ImageIO`. The decoded `BufferedImage` pixels are converted to ABGR integers and written to `NativeImage.setPixelABGR(x, y, abgr)`.
+  - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
+
 ---
 
 ## Build Verification & Repository Status
@@ -184,7 +193,7 @@
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew build
   ```
 - **Built Artifact**: `build/libs/spotimc-1.0.0.jar`
-- **Latest Verification (Session 13)**:
+- **Latest Verification (Session 14)**:
   ```bash
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build
   ```
