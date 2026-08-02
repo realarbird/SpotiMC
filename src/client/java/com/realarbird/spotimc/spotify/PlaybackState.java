@@ -82,14 +82,15 @@ public record PlaybackState(
             }
 
             if (albumArtUrl.isEmpty()) {
-                LOGGER.warn("[PlaybackState] No album art URL found in Spotify item JSON for track '{}' by '{}'", trackName, artistName);
+                System.out.println("[SpotiMC/Playback] No album art URL found in Spotify item JSON for track '" + trackName + "' by '" + artistName + "'");
             } else {
-                LOGGER.info("[PlaybackState] Found Spotify album art URL for track '{}': {}", trackName, albumArtUrl);
+                System.out.println("[SpotiMC/Playback] Found Spotify album art URL for track '" + trackName + "': " + albumArtUrl);
             }
 
             return new PlaybackState(trackName, artistName, albumName, albumArtUrl, isPlaying, progressMs, durationMs, shuffleState, repeatState);
         } catch (Exception e) {
-            LOGGER.error("Error parsing playback state JSON", e);
+            System.err.println("[SpotiMC/Playback] Error parsing playback state JSON: " + e);
+            e.printStackTrace(System.err);
             return EMPTY;
         }
     }

@@ -164,6 +164,17 @@
   - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
   - *Next Step*: Install the new JAR and check `latest.log` for `[SpotiMC]` prefixed messages. If entrypoints now fire but album art still fails, the detailed Session 11 logging will pinpoint whether the issue is: (a) no album art URL from the API, (b) HTTP download failure, (c) image decode failure, or (d) texture registration failure.
 
+### Session 13 — 2026-08-01 (Lunar Client SLF4J Bypass & STDOUT Diagnostics Verification)
+- **Mod Initializing Successfully — SLF4J Filtered by Lunar Client**:
+  - *Diagnosis*: Analysis of the updated `latest.log` confirmed lines 7-9:
+    - `[STDOUT]: [SpotiMC] SpotiMCMod.onInitialize() ENTRY`
+    - `[STDOUT]: [SpotiMC] SpotiMCClient.onInitializeClient() ENTRY`
+    - `[STDOUT]: [SpotiMC] SpotiMCClient.onInitializeClient() completed successfully`
+    This proves **Session 12 completely fixed mod initialization under Lunar Client**. Both common and client entrypoints now execute cleanly to completion.
+  - *Remaining Issue*: Lunar Client's log configuration suppresses SLF4J `LOGGER.info` / `LOGGER.warn` outputs for custom mod categories (`"SpotiMC"`, `"SpotiMC/AlbumArt"`, `"SpotiMC/HUD"`), preventing diagnostic logs from writing to `latest.log`.
+  - *Fix*: Converted all diagnostic loggers in `SpotiMCHud`, `AlbumArtTexture`, `PlaybackState`, `SpotifyAPI`, and `LastFmAPI` from SLF4J `LOGGER` to `System.out.println` / `System.err.println` (`[SpotiMC/...]` tags), which Lunar Client forwards directly to `latest.log` under `[STDOUT]`/`[STDERR]`.
+  - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
+
 ---
 
 ## Build Verification & Repository Status
@@ -173,7 +184,7 @@
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew build
   ```
 - **Built Artifact**: `build/libs/spotimc-1.0.0.jar`
-- **Latest Verification (Session 12)**:
+- **Latest Verification (Session 13)**:
   ```bash
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build
   ```

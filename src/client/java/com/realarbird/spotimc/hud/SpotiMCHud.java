@@ -87,8 +87,7 @@ public class SpotiMCHud implements HudElement {
         if (cachedArt != null) {
             String currentState = "LOADED:" + artUrl;
             if (!currentState.equals(lastLoggedArtState)) {
-                LOGGER.info("[SpotiMCHud] Displaying custom album art texture ({}) for track '{}' (URL: {})",
-                        cachedArt.id(), playback.trackName(), artUrl);
+                System.out.println("[SpotiMC/HUD] Displaying custom album art texture (" + cachedArt.id() + ") for track '" + playback.trackName() + "' (URL: " + artUrl + ")");
                 lastLoggedArtState = currentState;
             }
 
@@ -115,7 +114,7 @@ public class SpotiMCHud implements HudElement {
 
             String currentState = "FALLBACK:" + (artUrl != null ? artUrl : "") + ":" + reason;
             if (!currentState.equals(lastLoggedArtState)) {
-                LOGGER.info("[SpotiMCHud] Displaying FALLBACK cover picture (default_cover.png). Reason: {}", reason);
+                System.out.println("[SpotiMC/HUD] Displaying FALLBACK cover (default_cover.png). Reason: " + reason);
                 lastLoggedArtState = currentState;
             }
 

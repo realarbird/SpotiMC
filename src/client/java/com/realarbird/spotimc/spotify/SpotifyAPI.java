@@ -99,11 +99,14 @@ public class SpotifyAPI {
             } else if (response.statusCode() == 204) {
                 currentPlayback = PlaybackState.EMPTY;
             } else if (response.statusCode() == 401) {
-                LOGGER.warn("Spotify token unauthorized during polling, attempting refresh.");
+                System.out.println("[SpotiMC/Spotify] Token unauthorized (HTTP 401) during polling, attempting refresh.");
                 auth.refreshTokenAsync();
+            } else {
+                System.err.println("[SpotiMC/Spotify] Unexpected response code during polling: HTTP " + response.statusCode());
             }
         } catch (Exception e) {
-            LOGGER.error("Failed to poll Spotify playback state", e);
+            System.err.println("[SpotiMC/Spotify] Failed to poll Spotify playback state: " + e);
+            e.printStackTrace(System.err);
         }
     }
 

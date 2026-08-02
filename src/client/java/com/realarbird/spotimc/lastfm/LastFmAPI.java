@@ -138,9 +138,9 @@ public class LastFmAPI {
                         }
 
                         if (albumArtUrl.isEmpty()) {
-                            LOGGER.warn("[LastFm] No album art URL resolved for Last.fm track '{}' by '{}'", trackName, artistName);
+                            System.out.println("[SpotiMC/LastFm] No album art URL resolved for Last.fm track '" + trackName + "' by '" + artistName + "'");
                         } else {
-                            LOGGER.info("[LastFm] Resolved Last.fm album art URL for track '{}': {}", trackName, albumArtUrl);
+                            System.out.println("[SpotiMC/LastFm] Resolved Last.fm album art URL for track '" + trackName + "': " + albumArtUrl);
                         }
 
                         boolean isNowPlaying = false;
@@ -166,7 +166,8 @@ public class LastFmAPI {
             }
             currentPlayback = PlaybackState.EMPTY;
         } catch (Exception e) {
-            LOGGER.error("Failed to poll Last.fm tracks", e);
+            System.err.println("[SpotiMC/LastFm] Failed to poll Last.fm tracks: " + e);
+            e.printStackTrace(System.err);
         }
     }
 

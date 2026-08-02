@@ -78,7 +78,7 @@ public class AlbumArtTexture {
 
         // Start async download if not already in progress
         if (downloading.add(url)) {
-            LOGGER.info("[AlbumArtTexture] Starting async album art download from URL: {}", url);
+            System.out.println("[SpotiMC/AlbumArt] Starting async album art download from URL: " + url);
 
             // Use CompletableFuture.runAsync to perform the blocking HTTP
             // download on a worker thread. This avoids potential issues
@@ -97,7 +97,7 @@ public class AlbumArtTexture {
      */
     private void downloadAndRegister(String url) {
         try {
-            LOGGER.info("[AlbumArtTexture] Sending HTTP GET for album art: {}", url);
+            System.out.println("[SpotiMC/AlbumArt] Sending HTTP GET for album art: " + url);
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(5))
                     .header("User-Agent", "SpotiMC/1.0 (Minecraft Fabric Mod)")
@@ -111,14 +111,13 @@ public class AlbumArtTexture {
             int bodyLen = response.body() != null ? response.body().length : 0;
 
             if (response.statusCode() != 200 || response.body() == null || response.body().length == 0) {
-                LOGGER.error("[AlbumArtTexture] FAILED to download album art from {} — HTTP Status: {} (content-type: {}, body length: {} bytes)",
-                        url, response.statusCode(), contentType, bodyLen);
+                System.err.println("[SpotiMC/AlbumArt] FAILED to download album art from " + url + " — HTTP Status: " + response.statusCode() + " (content-type: " + contentType + ", body length: " + bodyLen + " bytes)");
                 failedUrls.add(url);
                 downloading.remove(url);
                 return;
             }
 
-            LOGGER.info("[AlbumArtTexture] Successfully downloaded album art ({} bytes, content-type: {}) from {}", bodyLen, contentType, url);
+            System.out.println("[SpotiMC/AlbumArt] Successfully downloaded album art (" + bodyLen + " bytes, content-type: " + contentType + ") from " + url);
 
             // Decode the image bytes. NativeImage.read(InputStream) requests RGBA
             // from STB Image, so the result is always RGBA regardless of source format.
@@ -126,7 +125,8 @@ public class AlbumArtTexture {
             try (ByteArrayInputStream bais = new ByteArrayInputStream(response.body())) {
                 image = NativeImage.read(bais);
             } catch (Exception decodeEx) {
-                LOGGER.error("[AlbumArtTexture] FAILED to decode image bytes for URL: {} (byte count: {})", url, bodyLen, decodeEx);
+                System.err.println("[SpotiMC/AlbumArt] FAILED to decode image bytes for URL: " + url + " (byte count: " + bodyLen + ")");
+                decodeEx.printStackTrace(System.err);
                 failedUrls.add(url);
                 downloading.remove(url);
                 return;
@@ -134,14 +134,14 @@ public class AlbumArtTexture {
 
             int imgW = image.getWidth();
             int imgH = image.getHeight();
-            LOGGER.info("[AlbumArtTexture] Decoded album art dimensions: {}x{}, format: {} for URL: {}", imgW, imgH, image.format(), url);
+            System.out.println("[SpotiMC/AlbumArt] Decoded album art dimensions: " + imgW + "x" + imgH + ", format: " + image.format() + " for URL: " + url);
 
             String hash = md5Hash(url);
             Identifier id = Identifier.fromNamespaceAndPath("spotimc", "albumart/" + hash);
 
             Minecraft client = Minecraft.getInstance();
             if (client == null) {
-                LOGGER.warn("[AlbumArtTexture] Minecraft client instance is null, cannot register texture for {}", url);
+                System.err.println("[SpotiMC/AlbumArt] Minecraft client instance is null, cannot register texture for " + url);
                 image.close();
                 downloading.remove(url);
                 return;
@@ -158,9 +158,10 @@ public class AlbumArtTexture {
                     registeredTextures.add(texture);
                     CachedTexture ct = new CachedTexture(id, imgW, imgH);
                     textureCache.put(url, ct);
-                    LOGGER.info("[AlbumArtTexture] SUCCESSFULLY registered texture identifier {} ({}x{}) for URL: {}", id, imgW, imgH, url);
+                    System.out.println("[SpotiMC/AlbumArt] SUCCESSFULLY registered texture identifier " + id + " (" + imgW + "x" + imgH + ") for URL: " + url);
                 } catch (Exception ex) {
-                    LOGGER.error("[AlbumArtTexture] FAILED to register dynamic texture on main thread for URL: {}", url, ex);
+                    System.err.println("[SpotiMC/AlbumArt] FAILED to register dynamic texture on main thread for URL: " + url);
+                    ex.printStackTrace(System.err);
                     failedUrls.add(url);
                     image.close();
                 } finally {
