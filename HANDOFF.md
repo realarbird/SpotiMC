@@ -192,6 +192,19 @@
     - **`SpotiMCHud.java`**: Updated `DEFAULT_COVER_SIZE` from 64 to 256 so the HUD blits the crisp 256x256 fallback texture scaled to the 32x32 HUD artwork slot.
   - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
 
+### Session 16 — 2026-08-03 (Server-Side Multiplayer Listening View Fix & Connection State Sync)
+- **Server Side View Not Working — Root Cause Analysis & Fix**:
+  - *Root Cause 1 (No Server State Persistence)*: `SpotiMCMod.java` previously forwarded client song update payloads directly to other online players without saving any server state. When a player joined a dedicated server, zero active song statuses were sent to them until existing players triggered a new track broadcast tick.
+  - *Root Cause 2 (No Disconnect Cleanup)*: When a player disconnected from the server, no disconnect packet was sent to remaining clients, leaving stale song titles displayed indefinitely above player heads.
+  - *Root Cause 3 (Codec String Overflow)*: `SpotiMCSongPayload.java` enforced a strict 16-character limit on `playerName` (`MAX_PLAYER_NAME_LENGTH = 16`). Custom names, server display names, or Bedrock/Geyser player names exceeding 16 characters caused `FriendlyByteBuf.writeUtf` to throw an `IllegalArgumentException`, dropping network packets.
+  - *Root Cause 4 (Client Change Detection & Join Sync)*: `ClientSongTracker.java` previously rate-limited updates strictly to 2.5s intervals and did not send song state immediately upon connecting to a server or changing playback/privacy state.
+  - *Fix*:
+    - **`SpotiMCMod.java`**: Added server-side state cache (`ACTIVE_PLAYER_SONGS = new ConcurrentHashMap<>()`). Registered `ServerPlayConnectionEvents.JOIN` to immediately send all active player song statuses to joining players. Registered `ServerPlayConnectionEvents.DISCONNECT` to clean up server cache and broadcast a clear payload (`isPlaying = false`) to all remaining players when someone leaves.
+    - **`SpotiMCSongPayload.java`**: Increased `MAX_PLAYER_NAME_LENGTH` to 64 and `MAX_TRACK_TEXT_LENGTH` to 256. Added `sanitize(str, maxLen)` helper in `CODEC` to truncate strings safely before serializing, preventing network stream exceptions.
+    - **`ClientSongTracker.java`**: Added state change detection (`lastSentTrack`, `lastSentArtist`, `lastSentIsPlaying`, `lastSentShareSetting`) so state changes (track change, pause/play, privacy toggle) broadcast IMMEDIATELY. Unchanged states send a heartbeat packet every 5s. Added `forceBroadcast()` and `clearAll()` methods.
+    - **`SpotiMCClient.java`**: Registered `ClientPlayConnectionEvents.JOIN` to call `forceBroadcast()` upon joining a server, and `ClientPlayConnectionEvents.DISCONNECT` to call `clearAll()` upon leaving.
+  - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
+
 ---
 
 ## Build Verification & Repository Status
@@ -201,9 +214,10 @@
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew build
   ```
 - **Built Artifact**: `build/libs/spotimc-1.0.0.jar`
-- **Latest Verification (Session 15)**:
+- **Latest Verification (Session 16)**:
   ```bash
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build
   ```
-  Completed successfully on 2026-08-01.
+  Completed successfully on 2026-08-03.
 - **GitHub Repository**: [https://github.com/realarbird/SpotiMC](https://github.com/realarbird/SpotiMC) (`main` branch)
+

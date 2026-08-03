@@ -18,8 +18,8 @@ public record SpotiMCSongPayload(
         boolean isPlaying
 ) implements CustomPacketPayload {
 
-    public static final int MAX_PLAYER_NAME_LENGTH = 16;
-    public static final int MAX_TRACK_TEXT_LENGTH = 160;
+    public static final int MAX_PLAYER_NAME_LENGTH = 64;
+    public static final int MAX_TRACK_TEXT_LENGTH = 256;
 
     public static final CustomPacketPayload.Type<SpotiMCSongPayload> TYPE =
             new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("spotimc", "song_update"));
@@ -27,9 +27,9 @@ public record SpotiMCSongPayload(
     public static final StreamCodec<FriendlyByteBuf, SpotiMCSongPayload> CODEC = CustomPacketPayload.codec(
             (payload, buf) -> {
                 buf.writeUUID(payload.playerUuid());
-                buf.writeUtf(payload.playerName() != null ? payload.playerName() : "", MAX_PLAYER_NAME_LENGTH);
-                buf.writeUtf(payload.trackName() != null ? payload.trackName() : "", MAX_TRACK_TEXT_LENGTH);
-                buf.writeUtf(payload.artistName() != null ? payload.artistName() : "", MAX_TRACK_TEXT_LENGTH);
+                buf.writeUtf(sanitize(payload.playerName(), MAX_PLAYER_NAME_LENGTH), MAX_PLAYER_NAME_LENGTH);
+                buf.writeUtf(sanitize(payload.trackName(), MAX_TRACK_TEXT_LENGTH), MAX_TRACK_TEXT_LENGTH);
+                buf.writeUtf(sanitize(payload.artistName(), MAX_TRACK_TEXT_LENGTH), MAX_TRACK_TEXT_LENGTH);
                 buf.writeBoolean(payload.isPlaying());
             },
             buf -> new SpotiMCSongPayload(
@@ -41,8 +41,14 @@ public record SpotiMCSongPayload(
             )
     );
 
+    private static String sanitize(String str, int maxLen) {
+        if (str == null) return "";
+        return str.length() <= maxLen ? str : str.substring(0, maxLen);
+    }
+
     @Override
     public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
         return TYPE;
     }
 }
+

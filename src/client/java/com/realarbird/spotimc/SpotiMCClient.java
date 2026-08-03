@@ -10,6 +10,7 @@ import com.realarbird.spotimc.spotify.SpotifyAPI;
 import com.realarbird.spotimc.spotify.SpotifyAuth;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
@@ -79,22 +80,38 @@ public class SpotiMCClient implements ClientModInitializer {
                 context.client().execute(() -> ClientSongTracker.updateSong(payload));
             });
 
-            // 5. Register tick handler to broadcast local song info and process social tracking
+            // 5. Register connection lifecycle events
+            ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+                client.execute(() -> {
+                    PlaybackState state = getActivePlayback();
+                    if (state != null) {
+                        ClientSongTracker.forceBroadcast(state.trackName(), state.artistName(), state.isPlaying());
+                    }
+                });
+            });
+
+            ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+                client.execute(ClientSongTracker::clearAll);
+            });
+
+            // 6. Register tick handler to broadcast local song info and process social tracking
             ClientTickEvents.END_CLIENT_TICK.register(client -> {
                 PlaybackState state = getActivePlayback();
                 if (state != null) {
                     ClientSongTracker.tickBroadcast(state.trackName(), state.artistName(), state.isPlaying());
+                } else {
+                    ClientSongTracker.tickBroadcast("", "", false);
                 }
             });
 
-            // 6. Initialize HUD overlay
+            // 7. Initialize HUD overlay
             HUD = new SpotiMCHud();
             HudElementRegistry.addLast(
                     Identifier.fromNamespaceAndPath(MOD_ID, "spotify_hud"),
                     HUD
             );
 
-            // 7. Register keybindings
+            // 8. Register keybindings
             SpotiMCKeybinds.register();
 
             LOGGER.info("SpotiMC client initialized successfully!");
@@ -134,3 +151,4 @@ public class SpotiMCClient implements ClientModInitializer {
         }
     }
 }
+

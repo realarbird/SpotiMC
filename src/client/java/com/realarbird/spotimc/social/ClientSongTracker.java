@@ -4,10 +4,9 @@ import com.realarbird.spotimc.SpotiMCConfig;
 import com.realarbird.spotimc.network.SpotiMCSongPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -15,8 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * Manages player song states on the client and handles broadcasting current player track info over network.
  */
 public class ClientSongTracker {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger("SpotiMC/Social");
 
     public record PlayerSongInfo(
             UUID uuid,
@@ -27,7 +24,12 @@ public class ClientSongTracker {
     ) {}
 
     private static final Map<UUID, PlayerSongInfo> PLAYER_SONGS = new ConcurrentHashMap<>();
+
     private static long lastBroadcastTime = 0;
+    private static String lastSentTrack = null;
+    private static String lastSentArtist = null;
+    private static boolean lastSentIsPlaying = false;
+    private static boolean lastSentShareSetting = true;
 
     /**
      * Updates song info stored for a player.
@@ -35,7 +37,7 @@ public class ClientSongTracker {
     public static void updateSong(SpotiMCSongPayload payload) {
         if (payload == null || payload.playerUuid() == null) return;
 
-        if (payload.isPlaying() && payload.trackName() != null && !payload.trackName().isEmpty()) {
+        if (payload.isPlaying() && payload.trackName() != null && !payload.trackName().trim().isEmpty()) {
             PLAYER_SONGS.put(payload.playerUuid(), new PlayerSongInfo(
                     payload.playerUuid(),
                     payload.playerName(),
@@ -57,39 +59,82 @@ public class ClientSongTracker {
     }
 
     /**
+     * Clears all stored remote player song statuses (e.g. on server disconnect).
+     */
+    public static void clearAll() {
+        PLAYER_SONGS.clear();
+        lastBroadcastTime = 0;
+        lastSentTrack = null;
+        lastSentArtist = null;
+        lastSentIsPlaying = false;
+    }
+
+    /**
+     * Forces immediate broadcast of current player status (e.g. on server join).
+     */
+    public static void forceBroadcast(String trackName, String artistName, boolean isPlaying) {
+        lastBroadcastTime = 0;
+        lastSentTrack = null;
+        lastSentArtist = null;
+        lastSentIsPlaying = !isPlaying; // force mismatch
+        tickBroadcast(trackName, artistName, isPlaying);
+    }
+
+    /**
      * Periodically sends local player's song update packet to server/peers.
      * Respects user privacy settings (shareMyListeningStats).
+     * Immediately broadcasts when song or privacy state changes.
      */
     public static void tickBroadcast(String trackName, String artistName, boolean isPlaying) {
-        long now = System.currentTimeMillis();
-        if (now - lastBroadcastTime < 2500) {
-            return;
-        }
-        lastBroadcastTime = now;
-
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
+
+        SpotiMCConfig config = SpotiMCConfig.getInstance();
+        boolean share = config != null && config.shareMyListeningStats;
+
+        String effectiveTrack = (share && trackName != null) ? trackName : "";
+        String effectiveArtist = (share && artistName != null) ? artistName : "";
+        boolean effectiveIsPlaying = share && isPlaying;
+
+        boolean stateChanged = !Objects.equals(effectiveTrack, lastSentTrack)
+                || !Objects.equals(effectiveArtist, lastSentArtist)
+                || effectiveIsPlaying != lastSentIsPlaying
+                || share != lastSentShareSetting;
+
+        long now = System.currentTimeMillis();
+        // Send immediately if state changed, or every 5000ms as heartbeat
+        if (!stateChanged && (now - lastBroadcastTime < 5000)) {
+            return;
+        }
+
+        lastBroadcastTime = now;
+        lastSentTrack = effectiveTrack;
+        lastSentArtist = effectiveArtist;
+        lastSentIsPlaying = effectiveIsPlaying;
+        lastSentShareSetting = share;
 
         UUID localUuid = mc.player.getUUID();
         String localName = mc.player.getName().getString();
 
-        SpotiMCConfig config = SpotiMCConfig.getInstance();
-        boolean share = config.shareMyListeningStats;
-
         SpotiMCSongPayload payload = new SpotiMCSongPayload(
                 localUuid,
                 localName,
-                share && trackName != null ? trackName : "",
-                share && artistName != null ? artistName : "",
-                share && isPlaying
+                effectiveTrack,
+                effectiveArtist,
+                effectiveIsPlaying
         );
 
-        // Update locally for singleplayer/local view
+        // Update locally for singleplayer / local overhead view
         updateSong(payload);
 
         // Send to server if connected
-        if (ClientPlayNetworking.canSend(SpotiMCSongPayload.TYPE)) {
-            ClientPlayNetworking.send(payload);
+        try {
+            if (ClientPlayNetworking.canSend(SpotiMCSongPayload.TYPE)) {
+                ClientPlayNetworking.send(payload);
+            }
+        } catch (Exception e) {
+            System.err.println("[SpotiMC/Social] Failed to send song payload: " + e.getMessage());
         }
     }
 }
+
