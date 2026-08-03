@@ -2,27 +2,27 @@ package com.realarbird.spotimc.mixin;
 
 import com.realarbird.spotimc.SpotiMCConfig;
 import com.realarbird.spotimc.social.ClientSongTracker;
-import net.minecraft.client.renderer.entity.EntityRenderer;
-import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(EntityRenderer.class)
+@Mixin(LivingEntityRenderer.class)
 public abstract class EntityRendererMixin {
 
     @Inject(
-            method = "extractNameTags(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
+            method = "extractNameTags(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;F)V",
             at = @At("TAIL")
     )
-    private void spotimc$renderPlayerSongOverhead(Entity entity, EntityRenderState state, float partialTick, CallbackInfo ci) {
+    private void spotimc$renderPlayerSongOverhead(LivingEntity entity, LivingEntityRenderState state, float partialTick, CallbackInfo ci) {
         try {
             SpotiMCConfig config = SpotiMCConfig.getInstance();
-            if (!config.showOthersListeningStats) {
+            if (config == null || !config.showOthersListeningStats) {
                 return;
             }
 
@@ -54,3 +54,4 @@ public abstract class EntityRendererMixin {
         return value.length() <= maxLength ? value : value.substring(0, maxLength - 1) + "…";
     }
 }
+

@@ -205,6 +205,14 @@
     - **`SpotiMCClient.java`**: Registered `ClientPlayConnectionEvents.JOIN` to call `forceBroadcast()` upon joining a server, and `ClientPlayConnectionEvents.DISCONNECT` to call `clearAll()` upon leaving.
   - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
 
+### Session 17 — 2026-08-03 (Overhead Nametag Mixin Target Fix: `LivingEntityRenderer` Overriding `EntityRenderer`)
+- **Overhead Song Display Not Rendering — Root Cause Found & Fixed**:
+  - *Diagnosis*: Analysis of Minecraft 26.2 bytecode (`AvatarRenderer` -> `LivingEntityRenderer` -> `EntityRenderer`) revealed that `LivingEntityRenderer` overrides `extractNameTags(LivingEntity, LivingEntityRenderState, float)` with its own attribute-based distance handling (`NAME_TAG_DISTANCE`, `BELOW_NAME_DISTANCE`).
+  - *Root Cause*: `EntityRendererMixin.java` previously targeted `@Mixin(EntityRenderer.class)` method `extractNameTags(Entity, EntityRenderState, float)`. Because `LivingEntityRenderer` overrides `extractNameTags`, Java virtual method dispatch invoked `LivingEntityRenderer.extractNameTags` when rendering player entities, completely bypassing `EntityRenderer.extractNameTags`. As a result, the mixin injection point was **never executed** for players!
+  - *Fix*:
+    - **`EntityRendererMixin.java`**: Changed Mixin target from `@Mixin(EntityRenderer.class)` to `@Mixin(LivingEntityRenderer.class)` and updated injection method signature to `extractNameTags(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;F)V`.
+  - *Verification*: `JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build` passed cleanly.
+
 ---
 
 ## Build Verification & Repository Status
@@ -214,10 +222,11 @@
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew build
   ```
 - **Built Artifact**: `build/libs/spotimc-1.0.0.jar`
-- **Latest Verification (Session 16)**:
+- **Latest Verification (Session 17)**:
   ```bash
   JAVA_HOME=/opt/homebrew/opt/openjdk@25 ./gradlew clean build
   ```
   Completed successfully on 2026-08-03.
 - **GitHub Repository**: [https://github.com/realarbird/SpotiMC](https://github.com/realarbird/SpotiMC) (`main` branch)
+
 
